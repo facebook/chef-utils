@@ -1,6 +1,6 @@
 Description
 ===========
-This is the repository that holds Chef utilities written and mainted by
+This is the repository that holds Chef utilities written and maintained by
 Facebook.
 
 License
