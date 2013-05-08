@@ -1,0 +1,310 @@
+#!/bin/bash
+
+# Author:: Phil Dibowitz <phild@fb.com> and David Martinez <ender@fb.com>
+# Copyright:: Copyright (c) 2013-present Facebook
+# License:: Apache License, Version 2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+# 
+#     http://www.apache.org/licenses/LICENSE-2.0
+# 
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Script to feed chef with cookbooks and roles modified since the last SVN
+# update.
+#
+# Notes: The script fails to update the rest if a cookbook has any syntax error.
+# The good thing is that you have to fix the problem in SVN and it will fix
+# itself in chef (svn up runs always, and before the upload).
+
+# VARS
+SVN='/usr/bin/svn'
+DRYRUN=0
+DEBUG=0
+
+PID_FILE='/var/run/grocery_delivery.pid'
+MAX_PROC_AGE=800
+STATUS_CODE=1
+ENCODED_STATUS_MSG='Unknown+failure'
+
+MASTER_PATH='/var/chef/grocery_delivery_work'
+REPONAME='ops'
+COOKBOOKS_PATH='chef/cookbooks'
+ROLES_PATH='chef/roles'
+REV_CHECKPOINT='gd_revision'
+KNIFE_CONFIG='/root/.chef/knife.rb'
+KNIFE='/opt/chef/bin/knife'
+
+set -o pipefail
+
+function call_knife() {
+  $KNIFE $* -c $KNIFE_CONFIG
+}
+
+function log() {
+  ME=$(basename $0)
+  logger -t "$ME" "$*"
+  if [ $DEBUG -eq 1 ] ; then
+    echo $*
+  fi
+}
+
+# General error handler.
+function error() {
+  STATUS_CODE=$1
+  STATUS_MSG=$2
+  log "Exiting with error ($STATUS_CODE): $STATUS_MSG"
+  exit $STATUS_CODE
+}
+
+function clone_repository() {
+  echo "The SVN repo in ${MASTER_PATH}/opsfiles does not exist, cloning it."
+  OUT=$($SVN co --ignore-externals ${SVN_PATH} "${SERVICE_PATH}" | tee /tmp/a) \
+      || error 1 "$SVN checkout $SERVICE_PATH failed ($?): $OUT"
+  OUT=$(echo 0 > $REV_CHECKPOINT_FULLPATH)
+}
+
+function update_repository() {
+  OUT=$($SVN cleanup $SERVICE_PATH 2>&1) \
+      || error 1 "$SVN cleanup $SERVICE_PATH failed ($?): $OUT"
+  OUT=$($SVN revert -R $SERVICE_PATH 2>&1) \
+      || error 2 "$SVN revert -R $SERVICE_PATH failed ($?): $OUT"
+  OUT=$(cd $SERVICE_PATH && $SVN up --ignore-externals $SERVICE_PATH 2>&1) \
+      || error 3 "$SVN up $SERVICE_PATH failed ($?): $OUT"
+}
+
+function update_cookbooks_and_roles() {
+  if [ ! -f "$REV_CHECKPOINT_FULLPATH" ]; then
+    REVNO=0
+  elif [ $(wc -c < "$REV_CHECKPOINT_FULLPATH") -eq 0 ]; then
+    # Note well, this cannot be a '-o' style or because the shell-expansion
+    # will happen before the conditional and cause errors
+    REVNO=0
+  else
+    REVNO=$(cat "$REV_CHECKPOINT_FULLPATH")
+  fi
+  if [ "$REVNO" -eq 0 ];then
+    # 'knife cookbook upload -a' uploads all your cookbooks.
+    ADDED_COOKBOOK_LIST="-a"
+    ADDED_ROLE_LIST=$(cd ${ROLES_FULLPATH} && find . -maxdepth 1 -type f | \
+                      awk -F/ '{print $2}' | egrep '\.(rb|js|json)$')
+  else
+    # From now on, we'll see how the local HEAD (already updated) differs from
+    # the last uploaded revision (REVNO).  We cannot do this against HEAD
+    # because it'll issue a connection with the SVN server and it'll give us
+    # potentially information "about the future", or in other words, we'll get
+    # information about commit that we don't have locally.
+    LOCAL_HEAD=$($SVN info $SERVICE_PATH | grep Rev: | grep -o '[0-9].*$')
+
+    # The awk expression below works as following:
+    # - For additions and modifications, we get everything - ^[AM]
+    # - For deletions, it's a bit trickier, because we could be deleting the
+    #   whole cookbook, so catch only deletions with a slash - ^D.*\/
+    # You have to remember that given that we cd into COOKBOOKS_FULLPATH,
+    # wedon't get any slashes other than the ones for subdirectories.
+
+    ADDED_COOKBOOK_LIST=$(\
+        cd ${COOKBOOKS_FULLPATH} && \
+        $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize | \
+        awk '/^([AM]|D.*\/)/ {print $NF}' | \
+        awk -F/ '{print $1}' | \
+        sort -u)
+    # For the reasons explained above, we throw anything with slashes.
+    DELETED_COOKBOOK_LIST=$(\
+        cd ${COOKBOOKS_FULLPATH} && \
+        $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize | \
+        grep -v / | \
+        awk '/^D/ {print $NF}' | \
+        awk -F/ '{print $1}' | \
+        sort -u)
+    # If we remove a cookbook, then we are most likely issuing a deletion in
+    # cascade, which means that the cookbook could be in ADDED_COOKBOOK_LIST
+    # too.
+    if [ -n "$DELETED_COOKBOOK_LIST" ];then
+      for COOKBOOK in $DELETED_COOKBOOK_LIST;do
+        ADDED_COOKBOOK_LIST=$(\
+            echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
+      done
+    fi
+
+    ADDED_ROLE_LIST=$(\
+      cd ${ROLES_FULLPATH} && $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize |\
+      awk '/^[AM]/ {print $NF}' | egrep '\.(rb|js|json)$' | \
+      sort -u)
+    DELETED_ROLE_LIST=$(\
+      cd ${ROLES_FULLPATH} && $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize |\
+      awk '/^D/ {print $NF}' | egrep '\.(rb|js|json)$' | \
+      xargs -I+ basename + .rb | \
+      sort -u)
+  fi
+
+  OUT=$(cd $SERVICE_PATH && $SVN info $SERVICE_PATH 2>&1 | \
+        awk '/^Revision:/ {print $2}') \
+      || error 4 "$SVN info $SERVICE_PATH failed ($?): $OUT"
+  NEW_REV=$OUT
+
+  if [ -n "$ADDED_COOKBOOK_LIST" ];then
+    if [ "$ADDED_COOKBOOK_LIST" == "-a" ] ; then
+      log "Uploading all cookbooks as of $NEW_REV"
+    else
+      log "Uploading cookbooks from $REVNO to $NEW_REV: $ADDED_COOKBOOK_LIST"
+    fi
+    if [ $DRYRUN -eq 0 ] ; then
+      OUT=$(call_knife cookbook upload $ADDED_COOKBOOK_LIST 2>&1) \
+          || error 5 "call_knife cookbook upload $ADDED_COOKBOOK_LIST \
+                      failed ($?): $OUT"
+    fi
+  fi
+
+  if [ -n "$DELETED_COOKBOOK_LIST" ];then
+    log "Deleting cookbooks from $REVNO to $NEW_REV: $DELETED_COOKBOOK_LIST"
+    if [ $DRYRUN -eq 0 ] ; then
+      for CB in $DELETED_COOKBOOK_LIST;do
+        OUT=$(call_knife cookbook delete $CB -ay 2>&1) \
+            || error 6 "call_knife cookbook delete $CB -ay failed ($?): $OUT"
+      done
+    fi
+  fi
+
+  if [ -n "$ADDED_ROLE_LIST" ] ; then
+    log "Uploading roles from $REVNO to $NEW_REV: $ADDED_ROLE_LIST"
+    if [ $DRYRUN -eq 0 ] ; then
+      OUT=$(\
+        cd ${ROLES_FULLPATH};\
+        call_knife role from file $ADDED_ROLE_LIST 2>&1) || \
+        error 7 "call_knife role from file $ADDED_ROLE_LIST failed ($?): $OUT"
+    fi
+  fi
+
+  if [ -n "$DELETED_ROLE_LIST" ] ; then
+    log "Deleting roles from $REVNO to $NEW_REV: $DELETED_ROLE_LIST"
+    if [ $DRYRUN -eq 0 ] ; then
+      for ROLE in $DELETED_ROLE_LIST;do
+        OUT=$(cd ${ROLES_FULLPATH}; call_knife role delete $ROLE -y 2>&1) \
+            || error 8 "call_knife role delete $ROLE -y failed ($?): $OUT"
+      done
+    fi
+  fi
+
+  # Save revision
+  if [ $DRYRUN -eq 0 ] ; then
+    echo $NEW_REV > $REV_CHECKPOINT_FULLPATH
+  fi
+}
+
+function help() {
+  echo "$(basename $0)
+
+Chef uploader. Checks out from SVN and uploads changed roles and cookbooks to
+the local system.
+
+Options:
+  -d    Debug. Print output to stdout in addition to logging.
+  -h    Help. This message.
+  -n    Dry-run. Don't actually upload.
+"
+}
+
+gdhook_preflight_checks() { return; }
+gdhook_exit_trap_commands() { return; }
+gdhook_prerun() { return; }
+gdhook_post_repo_up() { return; }
+gdhook_postrun() { return; }
+
+realpath=$(readlink -f $0)
+ourdir=$(dirname $realpath)
+ourfile=$(basename $realpath)
+
+hookname='gd_local.hooks'
+for attempt in $ourdir '/etc/'; do
+  file="$attempt/$hookname"
+  if [ -r "$file" ] ; then
+    echo "Sourcing $file"
+    source $file
+  fi
+done
+
+# User has had a chance to override stuff, put it all together
+SERVICE_PATH="${MASTER_PATH}/${REPONAME}"
+COOKBOOKS_FULLPATH="${SERVICE_PATH}/${COOKBOOKS_PATH}"
+ROLES_FULLPATH="${SERVICE_PATH}/${ROLES_PATH}"
+REV_CHECKPOINT_FULLPATH="${MASTER_PATH}/${REV_CHECKPOINT}"
+
+gdhook_preflight_checks
+
+while getopts 'dhn' opt; do
+  case "$opt" in
+    d)
+      DEBUG=1
+      ;;
+    h)
+      help
+      exit 0
+      ;;
+    n)
+      DRYRUN=1
+      ;;
+    *)
+      echo "Invalid option '$opt'!"
+      help
+      exit 1
+      ;;
+  esac
+done
+
+LOCKFILE=/tmp/$ourfile.lock
+if [ -f "$LOCKFILE" ]; then
+  LOCK_EXISTS=1
+else
+  LOCK_EXISTS=0
+fi
+
+if lockfile -! -l $MAX_PROC_AGE -r 0 "$LOCKFILE"; then
+  MESSAGE="Unable to update $SERVICE_PATH, lock file exists."
+  echo $MESSAGE >&2
+  logger -p user.warning -t `basename $0` $MESSAGE
+  exit
+fi
+
+if [ "$LOCK_EXISTS" -eq 1 ]; then
+  log "Overriding $LOCKFILE, too old ($MAX_PROC_AGE seconds)."
+  if [ -f "$PID_FILE" ]; then
+    OLD_PROC=$(cat $PID_FILE)
+    log "Killing old process $OLD_PROC."
+    pkill -9 -P $OLD_PROC
+    kill -9 $OLD_PROC
+  fi
+fi
+
+echo $$ > $PID_FILE
+
+# determine any traps the user setup, then add ours
+user_traps=$(gdhook_exit_trap_commands)
+trapcmd="rm -f $LOCKFILE &>/dev/null"
+if [ -n "user_traps" ] ; then
+  trapcmd="$user_traps ; $trapcmd"
+fi
+trap "$trapcmd" exit
+trap exit INT
+
+gdhook_prerun
+
+if [ ! -d "$SERVICE_PATH" ];then
+  clone_repository
+else
+  update_repository
+fi
+
+gdhook_post_repo_up
+
+update_cookbooks_and_roles
+STATUS_CODE=0
+STATUS_MSG="Success at $NEW_REV"
+
+gdhook_postrun
