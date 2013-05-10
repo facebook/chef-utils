@@ -64,7 +64,6 @@ function error() {
 }
 
 function clone_repository() {
-  echo "The SVN repo in ${MASTER_PATH}/opsfiles does not exist, cloning it."
   OUT=$($SVN co --ignore-externals ${SVN_PATH} "${SERVICE_PATH}" | tee /tmp/a) \
       || error 1 "$SVN checkout $SERVICE_PATH failed ($?): $OUT"
   OUT=$(echo 0 > $REV_CHECKPOINT_FULLPATH)
@@ -296,6 +295,7 @@ trap exit INT
 gdhook_prerun
 
 if [ ! -d "$SERVICE_PATH" ];then
+  echo "The SVN repo in ${SERVICE_PATH} does not exist, cloning it."
   clone_repository
 else
   update_repository
