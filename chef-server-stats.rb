@@ -117,8 +117,9 @@ def get_rabbitmq_stats(embedded_path)
 end
 
 # Collect postgresql stats
-def get_postgresql_stats
-  return {} unless File.exists?('/usr/bin/psql')
+def get_postgresql_stats(embedded_path)
+  psql_bin = "#{embedded_path}/psql"
+  return {} unless File.exists?(psql_bin)
   # Stats to select and sum from pg_stat_all_tables (see postgresql docs)
   # http://www.postgresql.org/docs/current/static/monitoring-stats.html
   # Table 27-5. pg_stat_all_tables View
@@ -137,7 +138,7 @@ def get_postgresql_stats
   _safe_get(__method__) do
     stats = {}
     q = "SELECT SUM(#{columns.join('), SUM(')}) FROM pg_stat_all_tables;"
-    cmd = "su opscode-pgsql -c \"cd; /usr/bin/psql -A -P tuples_only -U chef" +
+    cmd = "su opscode-pgsql -c \"cd; #{psql_bin} -A -P tuples_only -U chef" +
           " -d opscode_chef -c '#{q}'\""
 
     s = Mixlib::ShellOut.new(cmd).run_command
@@ -149,7 +150,7 @@ def get_postgresql_stats
 
     # postgresql connection count
     q = "SELECT count(*) FROM pg_stat_activity WHERE datname = 'opscode_chef';"
-    cmd = "su opscode-pgsql -c \"cd; /usr/bin/psql -A -P tuples_only -U chef" +
+    cmd = "su opscode-pgsql -c \"cd; #{psql_bin} -A -P tuples_only -U chef" +
           " -d opscode_chef -c \\\"#{q}\\\"\""
 
     s = Mixlib::ShellOut.new(cmd).run_command
@@ -239,7 +240,7 @@ output = {}
 output.merge!(get_api_counts)
 output.merge!(get_couchdb_stats(running_osc, server))
 output.merge!(get_rabbitmq_stats(embedded_path))
-output.merge!(get_postgresql_stats)
+output.merge!(get_postgresql_stats(embedded_path))
 output.merge!(get_authz_stats(running_osc, server))
 output.merge!(get_redis_stats)
 output.merge!(get_server_status(server))
