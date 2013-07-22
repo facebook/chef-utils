@@ -40,6 +40,7 @@ ROLES_PATH='chef/roles'
 REV_CHECKPOINT='gd_revision'
 KNIFE_CONFIG='/root/.chef/knife.rb'
 KNIFE='/opt/chef/bin/knife'
+ME=$(basename $0)
 
 set -o pipefail
 
@@ -48,10 +49,15 @@ function call_knife() {
 }
 
 function log() {
-  ME=$(basename $0)
-  logger -t "$ME" "$*"
+  logger -t "$ME[$$]" "$*"
   if [ $DEBUG -eq 1 ] ; then
     echo $*
+  fi
+}
+
+function debug() {
+  if [ $DEBUG -eq 1 ]; then
+    log "DEBUG: $*"
   fi
 }
 
@@ -198,7 +204,7 @@ function update_cookbooks_and_roles() {
 }
 
 function help() {
-  echo "$(basename $0)
+  echo "$ME
 
 Chef uploader. Checks out from SVN and uploads changed roles and cookbooks to
 the local system.
@@ -209,6 +215,8 @@ Options:
   -n    Dry-run. Don't actually upload.
 "
 }
+
+debug 'startup'
 
 gdhook_preflight_checks() { return; }
 gdhook_exit_trap_commands() { return; }
@@ -224,7 +232,6 @@ hookname='gd_local.hooks'
 for attempt in $ourdir '/etc/'; do
   file="$attempt/$hookname"
   if [ -r "$file" ] ; then
-    echo "Sourcing $file"
     source $file
   fi
 done
@@ -265,9 +272,9 @@ else
 fi
 
 if lockfile -! -l $MAX_PROC_AGE -r 0 "$LOCKFILE"; then
-  MESSAGE="Unable to update $SERVICE_PATH, lock file exists."
+  MESSAGE='Lockfile exists, exiting before doing any work.'
   echo $MESSAGE >&2
-  logger -p user.warning -t `basename $0` $MESSAGE
+  logger -p user.warning -t "$ME[$$]" $MESSAGE
   exit
 fi
 
@@ -283,6 +290,8 @@ fi
 
 echo $$ > $PID_FILE
 
+debug 'lock acquired'
+
 # determine any traps the user setup, then add ours
 user_traps=$(gdhook_exit_trap_commands)
 trapcmd="rm -f $LOCKFILE &>/dev/null"
@@ -292,19 +301,24 @@ fi
 trap "$trapcmd" exit
 trap exit INT
 
+debug 'beginning work'
+
 gdhook_prerun
 
 if [ ! -d "$SERVICE_PATH" ];then
-  echo "The SVN repo in ${SERVICE_PATH} does not exist, cloning it."
+  log "The SVN repo in ${SERVICE_PATH} does not exist, cloning it."
   clone_repository
 else
   update_repository
 fi
+
+debug 'repo synced, real work time'
 
 gdhook_post_repo_up
 
 update_cookbooks_and_roles
 STATUS_CODE=0
 STATUS_MSG="Success at $NEW_REV"
+log "$STATUS_MSG"
 
 gdhook_postrun
