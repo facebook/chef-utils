@@ -94,7 +94,7 @@ function update_cookbooks_and_roles() {
   else
     REVNO=$(cat "$REV_CHECKPOINT_FULLPATH")
   fi
-  if [ "$REVNO" -eq 0 ];then
+  if [ "$REVNO" -eq "0" ];then
     # 'knife cookbook upload -a' uploads all your cookbooks.
     ADDED_COOKBOOK_LIST="-a"
     ADDED_ROLE_LIST=$(cd ${ROLES_FULLPATH} && find . -maxdepth 1 -type f | \
@@ -161,7 +161,7 @@ function update_cookbooks_and_roles() {
       log "Uploading cookbooks from $REVNO to $NEW_REV: $ADDED_COOKBOOK_LIST"
     fi
     if [ $DRYRUN -eq 0 ] ; then
-      OUT=$(call_knife cookbook upload $ADDED_COOKBOOK_LIST 2>&1) \
+      OUT=$(call_knife cookbook upload $ADDED_COOKBOOK_LIST -o $COOKBOOKS_FULLPATH 2>&1) \
           || error 5 "call_knife cookbook upload $ADDED_COOKBOOK_LIST \
                       failed ($?): $OUT"
     fi
@@ -295,7 +295,7 @@ debug 'lock acquired'
 # determine any traps the user setup, then add ours
 user_traps=$(gdhook_exit_trap_commands)
 trapcmd="rm -f $LOCKFILE &>/dev/null"
-if [ -n "user_traps" ] ; then
+if [ -n "$user_traps" ] ; then
   trapcmd="$user_traps ; $trapcmd"
 fi
 trap "$trapcmd" exit
