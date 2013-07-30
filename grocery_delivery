@@ -141,6 +141,9 @@ function update_cookbooks_and_roles() {
         DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
       fi
     done
+    # If we remove a cookbook, then we are most likely issuing a deletion in
+    # cascade, which means that the cookbook could be in ADDED_COOKBOOK_LIST
+    # too.
     if [ -n "$DELETED_COOKBOOK_LIST" ];then
       for COOKBOOK in $DELETED_COOKBOOK_LIST;do
         ADDED_COOKBOOK_LIST=$(\
