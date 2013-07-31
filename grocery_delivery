@@ -139,17 +139,13 @@ function update_cookbooks_and_roles() {
     for COOKBOOK in $ADDED_COOKBOOK_LIST; do
       if [ ! -d $COOKBOOKS_FULLPATH/$COOKBOOK ];then
         DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
-      fi
-    done
-    # If we remove a cookbook, then we are most likely issuing a deletion in
-    # cascade, which means that the cookbook could be in ADDED_COOKBOOK_LIST
-    # too.
-    if [ -n "$DELETED_COOKBOOK_LIST" ];then
-      for COOKBOOK in $DELETED_COOKBOOK_LIST; do
+        # If we remove a cookbook, then we are most likely issuing a
+        # deletion in cascade, which means that the cookbook could be in
+        # ADDED_COOKBOOK_LIST too.
         ADDED_COOKBOOK_LIST=$(\
             echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
-      done
-    fi
+      fi
+    done
 
     ADDED_ROLE_LIST=$(\
       cd ${ROLES_FULLPATH} && vcs_diff_summarize $REVNO $LOCAL_HEAD |\
