@@ -11,10 +11,8 @@ function vcs_cmd() {
 }
 
 function vcs_checkout_cmd() { echo $VCS clone $1 $2; }
-function vcs_checkout() { $(vcs_checkout_cmd $1 $2) 2>&1; }
 
 function vcs_cleanup_cmd() { echo $(vcs_cmd $1) clean -fdx; }
-function vcs_cleanup() { $(vcs_cleanup_cmd $1) 2>&1; }
 
 function vcs_update_cmd() { echo vcs_update $1; }
 function vcs_update() {
@@ -26,7 +24,6 @@ function vcs_update() {
 }
 
 function vcs_revert_cmd() { echo $(vcs_cmd $1) reset --hard origin/master; }
-function vcs_revert() { $(vcs_revert_cmd $1) 2>&1; }
 
 function vcs_local_head() {
   $(vcs_cmd $1) rev-parse HEAD;
