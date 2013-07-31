@@ -72,7 +72,7 @@ function error() {
 function find_and_source() {
   SFILE_NAME=$1
   shift
-  for SDIR in $@;do
+  for SDIR in $@; do
     SFILE="$SDIR/$SFILE_NAME"
     if [ -r $SFILE ];then
       log "Sourcing file: $SFILE"
@@ -136,7 +136,7 @@ function update_cookbooks_and_roles() {
         awk '/^[ADM]/ {print $NF}' | \
         awk -F/ '{print $1}' | \
         sort -u)
-    for COOKBOOK in $ADDED_COOKBOOK_LIST;do
+    for COOKBOOK in $ADDED_COOKBOOK_LIST; do
       if [ ! -d $COOKBOOKS_FULLPATH/$COOKBOOK ];then
         DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
       fi
@@ -145,7 +145,7 @@ function update_cookbooks_and_roles() {
     # cascade, which means that the cookbook could be in ADDED_COOKBOOK_LIST
     # too.
     if [ -n "$DELETED_COOKBOOK_LIST" ];then
-      for COOKBOOK in $DELETED_COOKBOOK_LIST;do
+      for COOKBOOK in $DELETED_COOKBOOK_LIST; do
         ADDED_COOKBOOK_LIST=$(\
             echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
       done
@@ -181,7 +181,7 @@ function update_cookbooks_and_roles() {
   if [ -n "$DELETED_COOKBOOK_LIST" ];then
     log "Deleting cookbooks from $REVNO to $NEW_REV: $DELETED_COOKBOOK_LIST"
     if [ $DRYRUN -eq 0 ] ; then
-      for CB in $DELETED_COOKBOOK_LIST;do
+      for CB in $DELETED_COOKBOOK_LIST; do
         OUT=$(call_knife cookbook delete $CB -ay 2>&1) \
             || error 6 "call_knife cookbook delete $CB -ay failed ($?): $OUT"
       done
@@ -201,7 +201,7 @@ function update_cookbooks_and_roles() {
   if [ -n "$DELETED_ROLE_LIST" ] ; then
     log "Deleting roles from $REVNO to $NEW_REV: $DELETED_ROLE_LIST"
     if [ $DRYRUN -eq 0 ] ; then
-      for ROLE in $DELETED_ROLE_LIST;do
+      for ROLE in $DELETED_ROLE_LIST; do
         OUT=$(cd ${ROLES_FULLPATH}; call_knife role delete $ROLE -y 2>&1) \
             || error 8 "call_knife role delete $ROLE -y failed ($?): $OUT"
       done
