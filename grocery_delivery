@@ -24,7 +24,6 @@
 # itself in chef (svn up runs always, and before the upload).
 
 # VARS
-SVN='/usr/bin/svn'
 DRYRUN=0
 DEBUG=0
 
@@ -40,6 +39,7 @@ ROLES_PATH='chef/roles'
 REV_CHECKPOINT='gd_revision'
 KNIFE_CONFIG='/root/.chef/knife.rb'
 KNIFE='/opt/chef/bin/knife'
+VCS='/usr/bin/svn'
 ME=$(basename $0)
 
 set -o pipefail
@@ -69,19 +69,33 @@ function error() {
   exit $STATUS_CODE
 }
 
+function find_and_source() {
+  SFILE_NAME=$1
+  shift
+  for SDIR in $@; do
+    SFILE="$SDIR/$SFILE_NAME"
+    if [ -r $SFILE ]; then
+      log "Sourcing file: $SFILE"
+      source $SFILE
+      return 0
+    fi
+  done
+  return 1
+}
+
 function clone_repository() {
-  OUT=$($SVN co --ignore-externals ${SVN_PATH} "${SERVICE_PATH}" | tee /tmp/a) \
-      || error 1 "$SVN checkout $SERVICE_PATH failed ($?): $OUT"
+  CMD=$(vcs_checkout_cmd ${REPO_URL} "${SERVICE_PATH}")
+  OUT=$($CMD 2>&1) || error 1 "$CMD failed ($?): $OUT"
   OUT=$(echo 0 > $REV_CHECKPOINT_FULLPATH)
 }
 
 function update_repository() {
-  OUT=$($SVN cleanup $SERVICE_PATH 2>&1) \
-      || error 1 "$SVN cleanup $SERVICE_PATH failed ($?): $OUT"
-  OUT=$($SVN revert -R $SERVICE_PATH 2>&1) \
-      || error 2 "$SVN revert -R $SERVICE_PATH failed ($?): $OUT"
-  OUT=$(cd $SERVICE_PATH && $SVN up --ignore-externals $SERVICE_PATH 2>&1) \
-      || error 3 "$SVN up $SERVICE_PATH failed ($?): $OUT"
+  CMD=$(vcs_cleanup_cmd $SERVICE_PATH)
+  OUT=$($CMD 2>&1) || error 1 "$CMD failed ($?): $OUT"
+  CMD=$(vcs_revert_cmd $SERVICE_PATH)
+  OUT=$($CMD 2>&1) || error 2 "$CMD failed ($?): $OUT"
+  CMD=$(vcs_update_cmd $SERVICE_PATH)
+  OUT=$(cd $SERVICE_PATH && $CMD 2>&1) || error 3 "$CMD failed ($?): $OUT"
 }
 
 function update_cookbooks_and_roles() {
@@ -94,7 +108,7 @@ function update_cookbooks_and_roles() {
   else
     REVNO=$(cat "$REV_CHECKPOINT_FULLPATH")
   fi
-  if [ "$REVNO" -eq 0 ];then
+  if [ "$REVNO" -eq 0 ]; then
     # 'knife cookbook upload -a' uploads all your cookbooks.
     ADDED_COOKBOOK_LIST="-a"
     ADDED_ROLE_LIST=$(cd ${ROLES_FULLPATH} && find . -maxdepth 1 -type f | \
@@ -105,56 +119,49 @@ function update_cookbooks_and_roles() {
     # because it'll issue a connection with the SVN server and it'll give us
     # potentially information "about the future", or in other words, we'll get
     # information about commit that we don't have locally.
-    LOCAL_HEAD=$($SVN info $SERVICE_PATH | grep Rev: | grep -o '[0-9].*$')
+    LOCAL_HEAD=$(vcs_local_head $SERVICE_PATH) \
+      || error 4 "Couldn't get local HEAD revision ($?): $LOCAL_HEAD"
 
-    # The awk expression below works as following:
-    # - For additions and modifications, we get everything - ^[AM]
-    # - For deletions, it's a bit trickier, because we could be deleting the
-    #   whole cookbook, so catch only deletions with a slash - ^D.*\/
-    # You have to remember that given that we cd into COOKBOOKS_FULLPATH,
-    # wedon't get any slashes other than the ones for subdirectories.
-
+    # Now we get the added/deleted cookbook lists as follows:
+    # - First, we get a list of all cookbooks with changes, including deletions
+    # - Next, because we could have deleted a whole cookbook, we check if any
+    #   of those cookbooks no longer exist (deleted cookbooks are guaranteed to
+    #   show up in our ADDED_COOKBOOK_LIST)
+    # - Finally, we take any deleted cookbooks off the added/modified list
+    # This has the advantage of working with both svn and git, since git will 
+    # not tell you about directory deletions.
     ADDED_COOKBOOK_LIST=$(\
         cd ${COOKBOOKS_FULLPATH} && \
-        $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize | \
-        awk '/^([AM]|D.*\/)/ {print $NF}' | \
+        vcs_diff_summarize $REVNO $LOCAL_HEAD | \
+        awk '/^[ADM]/ {print $NF}' | \
         awk -F/ '{print $1}' | \
         sort -u)
-    # For the reasons explained above, we throw anything with slashes.
-    DELETED_COOKBOOK_LIST=$(\
-        cd ${COOKBOOKS_FULLPATH} && \
-        $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize | \
-        grep -v / | \
-        awk '/^D/ {print $NF}' | \
-        awk -F/ '{print $1}' | \
-        sort -u)
-    # If we remove a cookbook, then we are most likely issuing a deletion in
-    # cascade, which means that the cookbook could be in ADDED_COOKBOOK_LIST
-    # too.
-    if [ -n "$DELETED_COOKBOOK_LIST" ];then
-      for COOKBOOK in $DELETED_COOKBOOK_LIST;do
+    for COOKBOOK in $ADDED_COOKBOOK_LIST; do
+      if [ ! -d $COOKBOOKS_FULLPATH/$COOKBOOK ]; then
+        DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
+        # If we remove a cookbook, then we are most likely issuing a
+        # deletion in cascade, which means that the cookbook could be in
+        # ADDED_COOKBOOK_LIST too.
         ADDED_COOKBOOK_LIST=$(\
             echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
-      done
-    fi
+      fi
+    done
 
     ADDED_ROLE_LIST=$(\
-      cd ${ROLES_FULLPATH} && $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize |\
+      cd ${ROLES_FULLPATH} && vcs_diff_summarize $REVNO $LOCAL_HEAD |\
       awk '/^[AM]/ {print $NF}' | egrep '\.(rb|js|json)$' | \
       sort -u)
     DELETED_ROLE_LIST=$(\
-      cd ${ROLES_FULLPATH} && $SVN diff -r ${REVNO}:${LOCAL_HEAD} --summarize |\
+      cd ${ROLES_FULLPATH} && vcs_diff_summarize $REVNO $LOCAL_HEAD |\
       awk '/^D/ {print $NF}' | egrep '\.(rb|js|json)$' | \
       xargs -I+ basename + .rb | \
       sort -u)
   fi
 
-  OUT=$(cd $SERVICE_PATH && $SVN info $SERVICE_PATH 2>&1 | \
-        awk '/^Revision:/ {print $2}') \
-      || error 4 "$SVN info $SERVICE_PATH failed ($?): $OUT"
-  NEW_REV=$OUT
+  NEW_REV=$(vcs_latest_revision $SERVICE_PATH) \
+    || error 4 "Couldn't get latest revision ($?): $NEW_REV"
 
-  if [ -n "$ADDED_COOKBOOK_LIST" ];then
+  if [ -n "$ADDED_COOKBOOK_LIST" ]; then
     if [ "$ADDED_COOKBOOK_LIST" == "-a" ] ; then
       log "Uploading all cookbooks as of $NEW_REV"
     else
@@ -167,10 +174,10 @@ function update_cookbooks_and_roles() {
     fi
   fi
 
-  if [ -n "$DELETED_COOKBOOK_LIST" ];then
+  if [ -n "$DELETED_COOKBOOK_LIST" ]; then
     log "Deleting cookbooks from $REVNO to $NEW_REV: $DELETED_COOKBOOK_LIST"
     if [ $DRYRUN -eq 0 ] ; then
-      for CB in $DELETED_COOKBOOK_LIST;do
+      for CB in $DELETED_COOKBOOK_LIST; do
         OUT=$(call_knife cookbook delete $CB -ay 2>&1) \
             || error 6 "call_knife cookbook delete $CB -ay failed ($?): $OUT"
       done
@@ -190,7 +197,7 @@ function update_cookbooks_and_roles() {
   if [ -n "$DELETED_ROLE_LIST" ] ; then
     log "Deleting roles from $REVNO to $NEW_REV: $DELETED_ROLE_LIST"
     if [ $DRYRUN -eq 0 ] ; then
-      for ROLE in $DELETED_ROLE_LIST;do
+      for ROLE in $DELETED_ROLE_LIST; do
         OUT=$(cd ${ROLES_FULLPATH}; call_knife role delete $ROLE -y 2>&1) \
             || error 8 "call_knife role delete $ROLE -y failed ($?): $OUT"
       done
@@ -229,12 +236,7 @@ ourdir=$(dirname $realpath)
 ourfile=$(basename $realpath)
 
 hookname='gd_local.hooks'
-for attempt in $ourdir '/etc/'; do
-  file="$attempt/$hookname"
-  if [ -r "$file" ] ; then
-    source $file
-  fi
-done
+find_and_source $hookname $ourdir "$ourdir/gd_helpers" "/etc"
 
 # User has had a chance to override stuff, put it all together
 SERVICE_PATH="${MASTER_PATH}/${REPONAME}"
@@ -263,6 +265,11 @@ while getopts 'dhn' opt; do
       ;;
   esac
 done
+
+# Multi-VCS support
+VCS_NAME=$(basename $VCS)
+find_and_source "gd_compat_$VCS_NAME" $ourdir "$ourdir/gd_helpers" "/etc" \
+    || error 9 "Unsupported VCS ($VCS)"
 
 LOCKFILE=/tmp/$ourfile.lock
 if [ -f "$LOCKFILE" ]; then
@@ -295,7 +302,7 @@ debug 'lock acquired'
 # determine any traps the user setup, then add ours
 user_traps=$(gdhook_exit_trap_commands)
 trapcmd="rm -f $LOCKFILE &>/dev/null"
-if [ -n "user_traps" ] ; then
+if [ -n "$user_traps" ] ; then
   trapcmd="$user_traps ; $trapcmd"
 fi
 trap "$trapcmd" exit
@@ -305,8 +312,8 @@ debug 'beginning work'
 
 gdhook_prerun
 
-if [ ! -d "$SERVICE_PATH" ];then
-  log "The SVN repo in ${SERVICE_PATH} does not exist, cloning it."
+if [ ! -d "$SERVICE_PATH" ]; then
+  log "The $VCS_NAME repo in ${SERVICE_PATH} does not exist, cloning it."
   clone_repository
 else
   update_repository

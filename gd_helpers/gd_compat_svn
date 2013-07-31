@@ -1,0 +1,25 @@
+#!/bin/bash
+
+# Functions for running Subversion
+
+: ${VCS='/usr/bin/svn'}
+
+function vcs_checkout_cmd() { echo $VCS co --ignore-externals $1 $2; }
+
+function vcs_cleanup_cmd() { echo $VCS cleanup $1; }
+
+function vcs_update_cmd() { echo $VCS up --ignore-externals $1; }
+
+function vcs_revert_cmd() { echo $VCS revert -R $1; }
+
+function vcs_local_head() {
+  $VCS info $1 | grep Rev: | grep -o '[0-9].*$' 2>&1;
+}
+
+function vcs_latest_revision() {
+  $$VCS info $1 | grep Revision: | grep -o '[0-9].*$' 2>&1;
+}
+
+function vcs_first_revision() { echo "0"; }
+
+function vcs_diff_summarize() { $VCS diff -r $1:$2 --summarize 2>&1; }
