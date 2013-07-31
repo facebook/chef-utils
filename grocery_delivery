@@ -74,7 +74,7 @@ function find_and_source() {
   shift
   for SDIR in $@; do
     SFILE="$SDIR/$SFILE_NAME"
-    if [ -r $SFILE ];then
+    if [ -r $SFILE ]; then
       log "Sourcing file: $SFILE"
       source $SFILE
       return 0
@@ -108,7 +108,7 @@ function update_cookbooks_and_roles() {
   else
     REVNO=$(cat "$REV_CHECKPOINT_FULLPATH")
   fi
-  if [ "$REVNO" -eq 0 ];then
+  if [ "$REVNO" -eq 0 ]; then
     # 'knife cookbook upload -a' uploads all your cookbooks.
     ADDED_COOKBOOK_LIST="-a"
     ADDED_ROLE_LIST=$(cd ${ROLES_FULLPATH} && find . -maxdepth 1 -type f | \
@@ -137,7 +137,7 @@ function update_cookbooks_and_roles() {
         awk -F/ '{print $1}' | \
         sort -u)
     for COOKBOOK in $ADDED_COOKBOOK_LIST; do
-      if [ ! -d $COOKBOOKS_FULLPATH/$COOKBOOK ];then
+      if [ ! -d $COOKBOOKS_FULLPATH/$COOKBOOK ]; then
         DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
         # If we remove a cookbook, then we are most likely issuing a
         # deletion in cascade, which means that the cookbook could be in
@@ -161,20 +161,20 @@ function update_cookbooks_and_roles() {
   NEW_REV=$(vcs_latest_revision $SERVICE_PATH) \
     || error 4 "Couldn't get latest revision ($?): $NEW_REV"
 
-  if [ -n "$ADDED_COOKBOOK_LIST" ];then
+  if [ -n "$ADDED_COOKBOOK_LIST" ]; then
     if [ "$ADDED_COOKBOOK_LIST" == "-a" ] ; then
       log "Uploading all cookbooks as of $NEW_REV"
     else
       log "Uploading cookbooks from $REVNO to $NEW_REV: $ADDED_COOKBOOK_LIST"
     fi
     if [ $DRYRUN -eq 0 ] ; then
-      OUT=$(call_knife cookbook upload $ADDED_COOKBOOK_LIST -o $COOKBOOKS_FULLPATH 2>&1) \
+      OUT=$(call_knife cookbook upload $ADDED_COOKBOOK_LIST 2>&1) \
           || error 5 "call_knife cookbook upload $ADDED_COOKBOOK_LIST \
                       failed ($?): $OUT"
     fi
   fi
 
-  if [ -n "$DELETED_COOKBOOK_LIST" ];then
+  if [ -n "$DELETED_COOKBOOK_LIST" ]; then
     log "Deleting cookbooks from $REVNO to $NEW_REV: $DELETED_COOKBOOK_LIST"
     if [ $DRYRUN -eq 0 ] ; then
       for CB in $DELETED_COOKBOOK_LIST; do
@@ -312,7 +312,7 @@ debug 'beginning work'
 
 gdhook_prerun
 
-if [ ! -d "$SERVICE_PATH" ];then
+if [ ! -d "$SERVICE_PATH" ]; then
   log "The $VCS_NAME repo in ${SERVICE_PATH} does not exist, cloning it."
   clone_repository
 else
