@@ -7,9 +7,9 @@
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -34,7 +34,7 @@ ENCODED_STATUS_MSG='Unknown+failure'
 
 MASTER_PATH='/var/chef/grocery_delivery_work'
 REPONAME='ops'
-COOKBOOKS_PATH='chef/cookbooks'
+COOKBOOK_PATHS=('chef/cookbooks')
 ROLES_PATH='chef/roles'
 REV_CHECKPOINT='gd_revision'
 KNIFE_CONFIG='/root/.chef/knife.rb'
@@ -75,7 +75,7 @@ function find_and_source() {
   for SDIR in $@; do
     SFILE="$SDIR/$SFILE_NAME"
     if [ -r $SFILE ]; then
-      log "Sourcing file: $SFILE"
+      debug "Sourcing file: $SFILE"
       source $SFILE
       return 0
     fi
@@ -128,28 +128,58 @@ function update_cookbooks_and_roles() {
     #   of those cookbooks no longer exist (deleted cookbooks are guaranteed to
     #   show up in our ADDED_COOKBOOK_LIST)
     # - Finally, we take any deleted cookbooks off the added/modified list
-    # This has the advantage of working with both svn and git, since git will 
+    # This has the advantage of working with both svn and git, since git will
     # not tell you about directory deletions.
-    ADDED_COOKBOOK_LIST=$(\
-        cd ${COOKBOOKS_FULLPATH} && \
-        vcs_diff_summarize $REVNO $LOCAL_HEAD | \
-        awk '/^[ADM]/ {print $NF}' | \
-        awk -F/ '{print $1}' | \
-        sort -u)
-    for COOKBOOK in $ADDED_COOKBOOK_LIST; do
-      if [ ! -d $COOKBOOKS_FULLPATH/$COOKBOOK ]; then
-        DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
-        # If we remove a cookbook, then we are most likely issuing a
-        # deletion in cascade, which means that the cookbook could be in
-        # ADDED_COOKBOOK_LIST too.
-        ADDED_COOKBOOK_LIST=$(\
-            echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
+    for CB_PATH in ${COOKBOOK_FULLPATHS[@]}; do
+      if [ ! -d "${CB_PATH}" ] ; then
+        debug "Skipping non-existent cookbook directory ${CB_PATH}"
+        continue
       fi
+      debug "Processing cookbook directory ${CB_PATH}"
+
+      # Make a list of cookbook paths that are *not* the one we are currently
+      # working on.  This way we don't treat any sub-paths as cookbook
+      # directories
+      declare -a OTHER_CB_PATHS=()
+      for ANOTHER_CB_PATH in ${COOKBOOK_FULLPATHS[@]}; do
+        if [ ! "$ANOTHER_CB_PATH" == "$CB_PATH" ]; then
+          OTHER_CB_PATHS+=("$ANOTHER_CB_PATH")
+        fi
+      done
+
+      ADDED_PATHS=($(
+          cd ${CB_PATH} && \
+          vcs_diff_summarize $REVNO $LOCAL_HEAD | \
+          awk '/^[ADM]/ {print $NF}' | \
+          awk -F/ '{print $1}' | \
+          sort -u))
+      for APATH in ${ADDED_PATHS[@]}; do
+        TESTPATH="$CB_PATH/$APATH"
+        for IGNORE in $OTHER_CB_PATHS; do
+          debug "Comparing $TESTPATH to ignore path $IGNORE"
+          if [[ $TESTPATH == $IGNORE ]]; then
+            debug "Ignoring $TESTPATH as it's a sub-cookbook-path"
+            continue 2
+          fi
+        done
+        CB=$(echo $APATH | awk -F/ '{print $1}')
+        ADDED_COOKBOOK_LIST="$ADDED_COOKBOOK_LIST $CB"
+      done
+      for COOKBOOK in $ADDED_COOKBOOK_LIST; do
+        if [ ! -d "$CB_PATH/$COOKBOOK" ]; then
+          DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
+          # If we remove a cookbook, then we are most likely issuing a deletion
+          # in cascade, which means that the cookbook could be in
+          # ADDED_COOKBOOK_LIST too.
+          ADDED_COOKBOOK_LIST=$(\
+            echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
+        fi
+      done
     done
 
     ADDED_ROLE_LIST=$(\
       cd ${ROLES_FULLPATH} && vcs_diff_summarize $REVNO $LOCAL_HEAD |\
-      awk '/^[AM]/ {print $NF}' | egrep '\.(rb|js|json)$' | \
+      awk '/^[AM]/ {print $NF}' | egrep '\.(rb|json)$' | \
       sort -u)
     DELETED_ROLE_LIST=$(\
       cd ${ROLES_FULLPATH} && vcs_diff_summarize $REVNO $LOCAL_HEAD |\
@@ -160,6 +190,11 @@ function update_cookbooks_and_roles() {
 
   NEW_REV=$(vcs_latest_revision $SERVICE_PATH) \
     || error 4 "Couldn't get latest revision ($?): $NEW_REV"
+
+  debug "Added cookbooks: $ADDED_COOKBOOK_LIST"
+  debug "Removed cookbooks: $DELETED_COOKBOOK_LIST"
+  debug "Added roles: $ADDED_ROLE_LIST"
+  debug "Removed roles: $DELETED_ROLE_LIST"
 
   if [ -n "$ADDED_COOKBOOK_LIST" ]; then
     if [ "$ADDED_COOKBOOK_LIST" == "-a" ] ; then
@@ -236,11 +271,14 @@ ourdir=$(dirname $realpath)
 ourfile=$(basename $realpath)
 
 hookname='gd_local.hooks'
-find_and_source $hookname $ourdir "$ourdir/gd_helpers" "/etc"
+find_and_source $hookname $ourdir "$ourdir/gd_helpers" '/etc'
 
 # User has had a chance to override stuff, put it all together
 SERVICE_PATH="${MASTER_PATH}/${REPONAME}"
-COOKBOOKS_FULLPATH="${SERVICE_PATH}/${COOKBOOKS_PATH}"
+declare -a COOKBOOK_FULLPATHS
+for CB_PATH in ${COOKBOOK_PATHS[@]}; do
+  COOKBOOK_FULLPATHS+=("${SERVICE_PATH}/${CB_PATH}")
+done
 ROLES_FULLPATH="${SERVICE_PATH}/${ROLES_PATH}"
 REV_CHECKPOINT_FULLPATH="${MASTER_PATH}/${REV_CHECKPOINT}"
 
@@ -268,7 +306,7 @@ done
 
 # Multi-VCS support
 VCS_NAME=$(basename $VCS)
-find_and_source "gd_compat_$VCS_NAME" $ourdir "$ourdir/gd_helpers" "/etc" \
+find_and_source "gd_compat_$VCS_NAME" $ourdir "$ourdir/gd_helpers" '/etc' \
     || error 9 "Unsupported VCS ($VCS)"
 
 LOCKFILE=/tmp/$ourfile.lock
