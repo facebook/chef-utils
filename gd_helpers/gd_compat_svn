@@ -17,9 +17,9 @@ function vcs_local_head() {
 }
 
 function vcs_latest_revision() {
-  $$VCS info $1 | grep Revision: | grep -o '[0-9].*$' 2>&1;
+  $VCS info $1 | grep Revision: | grep -o '[0-9].*$' 2>&1;
 }
 
-function vcs_first_revision() { echo "0"; }
+function vcs_first_revision() { echo '0'; }
 
 function vcs_diff_summarize() { $VCS diff -r $1:$2 --summarize 2>&1; }

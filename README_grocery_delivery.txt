@@ -1,7 +1,7 @@
 Ohai!
 
 Welcome to grocery_delivery, software to keep cookbooks and roles in sync
-between an SVN repo and a chef server. The idea is that if you have multiple,
+between a VCS repo and a chef server. The idea is that if you have multiple,
 distinct Chef instances that should all be identical, they can all run this
 script in cron. The script uses proper locking, so you should be able to run it
 even every minute.
@@ -17,14 +17,13 @@ are described here:
 
 VARIABLES
 =========
-
-MASTER_PATH - The path where grocery_delivery should keep its SVN checkout and
+MASTER_PATH - The path where grocery_delivery should keep its VCS checkout and
 state files. Defaults to /var/chef/grocery_delivery_work.
 
-REPONAME - The name of the SVN repo. Defaults to ops.
+REPONAME - The name of the VCS repo - i.e. the subdir of MASTER_PATH to check out the repo to. Defaults to ops.
 
-COOKBOOKS_PATH - The relative path to cookbooks from within repo. Defaults to
-'chef/cookbooks'
+COOKBOOK_PATHS - The relative path to cookbooks from within repo. Defaults to
+an array of ('chef/cookbooks'). You can have multiple entries. If you have directories that are subdirectories of others, it'll handle this intelligently.
 
 ROLES_PATH - The relative path to roles from within the repo. Defaults to
 'chef/roles'
@@ -53,3 +52,7 @@ before we talk to the Chef server.
 
 gdhook_postrun() - Things to right after grocery_delivery is done doing its
 work.
+
+VCS SUPPORT
+===========
+Grocery_delivery's VCS support has been abstracted into plugable modules. Two plugins are distributed: git and svn.
