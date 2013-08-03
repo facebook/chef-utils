@@ -2,15 +2,15 @@
 
 # Functions for running Git
 
-: ${VCS='/usr/bin/git'}
+: ${GIT=$VCS}
 
 function vcs_cmd() {
   # partial cmd line for working inside of a repo without changing cwd
   # takes repo top level dir as argument
-  echo $VCS --git-dir=$1/.git --work-tree=$1 --no-pager;
+  echo $GIT --git-dir=$1/.git --work-tree=$1 --no-pager;
 }
 
-function vcs_checkout_cmd() { echo $VCS clone $1 $2; }
+function vcs_checkout_cmd() { echo $GIT clone $1 $2; }
 
 function vcs_cleanup_cmd() { echo $(vcs_cmd $1) clean -fdx; }
 
@@ -18,8 +18,8 @@ function vcs_update_cmd() { echo vcs_update $1; }
 function vcs_update() {
   vcs_update_orig_wd=$(pwd)
   cd $1
-  $VCS pull origin master || return 1
-  $VCS submodule update --init || return 2
+  $GIT pull origin master || return 1
+  $GIT submodule update --init || return 2
   cd $vcs_update_orig_wd
 }
 
@@ -37,4 +37,6 @@ function vcs_first_revision() {
   $(vcs_cmd $1) log --reverse --format=%H | head -1;
 }
 
-function vcs_diff_summarize() { $VCS diff --relative --name-status ${1}..${2} 2>&1; }
+function vcs_diff_summarize() {
+  $GIT diff --relative --name-status ${1}..${2} 2>&1;
+}
