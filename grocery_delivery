@@ -32,14 +32,15 @@ MAX_PROC_AGE=800
 STATUS_CODE=1
 ENCODED_STATUS_MSG='Unknown+failure'
 
-MASTER_PATH='/var/chef/grocery_delivery_work'
-REPONAME='ops'
-COOKBOOK_PATHS=('chef/cookbooks')
-ROLES_PATH='chef/roles'
-REV_CHECKPOINT='gd_revision'
-KNIFE_CONFIG='/root/.chef/knife.rb'
-KNIFE='/opt/chef/bin/knife'
-VCS='/usr/bin/svn'
+export MASTER_PATH='/var/chef/grocery_delivery_work'
+export REPONAME='ops'
+export COOKBOOK_PATHS=('chef/cookbooks')
+export ROLES_PATH='chef/roles'
+export REV_CHECKPOINT='gd_revision'
+export KNIFE_CONFIG='/root/.chef/knife.rb'
+export KNIFE='/opt/chef/bin/knife'
+export VCS='/usr/bin/svn'
+export REPO_URL VCS SVN GIT
 ME=$(basename $0)
 
 set -o pipefail
@@ -128,9 +129,20 @@ function update_cookbooks_and_roles() {
     #   of those cookbooks no longer exist (deleted cookbooks are guaranteed to
     #   show up in our ADDED_COOKBOOK_LIST)
     # - Finally, we take any deleted cookbooks off the added/modified list
-    # This has the advantage of working with both svn and git, since git will
-    # not tell you about directory deletions.
+    #   This has the advantage of working with both svn and git, since git will
+    #   not tell you about directory deletions.
+    ADDED_COOKBOOK_LIST=''
+    DELETED_COOKBOOK_LIST=''
     for CB_PATH in ${COOKBOOK_FULLPATHS[@]}; do
+      # Because we handle more than one directory, we need to make sure
+      # that a delete from one directory doesn't cause us to nuke the CB
+      # from the ADD list if that ADD was from a different directory.
+      #
+      # In other words if it gets moved from DIR1 to DIR2, but we happen
+      # to process DIR2 first, we'd just delete the cookbook instead of
+      # adding it, unless we track the dirs add/delete separately.
+      LOCAL_ADDED_CBS=''
+      LOCAL_DELETED_CBS=''
       if [ ! -d "${CB_PATH}" ] ; then
         debug "Skipping non-existent cookbook directory ${CB_PATH}"
         continue
@@ -155,6 +167,13 @@ function update_cookbooks_and_roles() {
           sort -u))
       for APATH in ${ADDED_PATHS[@]}; do
         TESTPATH="$CB_PATH/$APATH"
+        # Ignore flat files... these cannot be cookbooks, and we want
+        # to allow things like READMEs
+        if [ -f "$TESTPATH" ]; then
+          debug "Skipping $TESTPATH since it's a file"
+          continue
+        fi
+        # Ignore directories that are just another CB path we will process
         for IGNORE in $OTHER_CB_PATHS; do
           debug "Comparing $TESTPATH to ignore path $IGNORE"
           if [[ $TESTPATH == $IGNORE ]]; then
@@ -162,19 +181,33 @@ function update_cookbooks_and_roles() {
             continue 2
           fi
         done
-        CB=$(echo $APATH | awk -F/ '{print $1}')
-        ADDED_COOKBOOK_LIST="$ADDED_COOKBOOK_LIST $CB"
+        LOCAL_ADDED_CBS=$(echo -e "$APATH\n$LOCAL_ADDED_CBS")
       done
-      for COOKBOOK in $ADDED_COOKBOOK_LIST; do
+      for COOKBOOK in $LOCAL_ADDED_CBS; do
         if [ ! -d "$CB_PATH/$COOKBOOK" ]; then
-          DELETED_COOKBOOK_LIST="$COOKBOOK $DELETED_COOKBOOK_LIST"
+          debug "$COOKBOOK is a deletion, so not treating it as an upload"
+          LOCAL_DELETED_CBS=$(echo -e "$COOKBOOK\n$LOCAL_DELETED_CBS")
           # If we remove a cookbook, then we are most likely issuing a deletion
           # in cascade, which means that the cookbook could be in
-          # ADDED_COOKBOOK_LIST too.
-          ADDED_COOKBOOK_LIST=$(\
-            echo "$ADDED_COOKBOOK_LIST" | grep -v "^${COOKBOOK}$")
+          # LOCAL_ADDED_CBS too.
+          LOCAL_ADDED_CBS=$(\
+            echo "$LOCAL_ADDED_CBS" | grep -v "^${COOKBOOK}$")
         fi
       done
+
+      # OK, now that we now the adds and deletes sorted out for this
+      # directory we can append them to the global list
+      ADDED_COOKBOOK_LIST=$(echo -e "$ADDED_COOKBOOK_LIST\n$LOCAL_ADDED_CBS")
+      DELETED_COOKBOOK_LIST=$(
+        echo -e "$DELETED_COOKBOOK_LIST\n$LOCAL_DELETED_CBS")
+    done
+
+    # Now, we could have things that showed up in both the ADDED and DELETED
+    # lists. If so, they are being moved, so it's safe to remove them from
+    # DELETED LIST. (Recall that if we both modified but nuked a given CB, we
+    # would have caught that as only a delete above).
+    for CB in $ADDED_COOKBOOK_LIST; do
+      DELETED_COOKBOOK_LIST=$(echo "$DELETED_COOKBOOK_LIST" | grep -v "^${CB}$")
     done
 
     ADDED_ROLE_LIST=$(\

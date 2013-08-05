@@ -23,6 +23,9 @@ state files. Defaults to /var/chef/grocery_delivery_work.
 
 REPONAME - The name of the VCS repo - i.e. the subdir of MASTER_PATH to check out the repo to. Defaults to ops.
 
+REPO_URL - The URL for the initial checkout if the repository if it does not
+already exist.
+
 COOKBOOK_PATHS - The relative path to cookbooks from within repo. Defaults to
 an array of ('chef/cookbooks'). You can have multiple entries. If you have directories that are subdirectories of others, it'll handle this intelligently.
 
