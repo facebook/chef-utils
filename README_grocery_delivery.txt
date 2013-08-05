@@ -11,9 +11,10 @@ However, there are several things to know:
   * You want anything committed to HEAD to be uploaded immediately.
 
 To customize grocery_delivery, you can create a file called "gd_local.hooks"
-either in the same directory as grocery_delivery, or in /etc, and it can override
-a variety of variables and/or define functions which will be called. These hooks
-are described here:
+either in the same directory as grocery_delivery, a subdirectory of
+grocery_delivery's directory called "gd_hooks", or in /etc, and it can
+override a variety of variables and/or define functions which will be called.
+These hooks are described here:
 
 VARIABLES
 =========
@@ -35,6 +36,10 @@ KNIFE_CONFIG - The path to knife config. Defaults to '/root/.chef/knife.rb'
 
 KNIFE - The path to knife. Defaults to '/opt/chef/bin/knife'
 
+VCS - The revision control system to use. This should be the full path to
+the client such as '/usr/bin/svn' or '/usr/bin/git'. See "VCS SUPPORT" below
+for more details.
+
 FUNCTIONS
 =========
 gdhook_preflight_checks() - Checks to run before we even parse options. Typically
@@ -55,4 +60,8 @@ work.
 
 VCS SUPPORT
 ===========
-Grocery_delivery's VCS support has been abstracted into plugable modules. Two plugins are distributed: git and svn.
+Grocery_delivery's VCS support has been abstracted into plugable modules. Two plugins are distributed: git and svn. To choose one, in your local hook file you can define a variable called $VCS to the path to your VCS sytem.
+
+Note that if you need to, each VCS module also has a variable you can set
+to override the underlying binary that will be called. In the Subversion module this is $SVN, and in the Git module it's GIT. These default to the value of $VCS, but
+since the module loaded depends on this variable, and you may need to then do more interesting things, you can give $SVN/$GIT a more specific value.
