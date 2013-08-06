@@ -224,6 +224,12 @@ function update_cookbooks_and_roles() {
   NEW_REV=$(vcs_latest_revision $SERVICE_PATH) \
     || error 4 "Couldn't get latest revision ($?): $NEW_REV"
 
+  # Nuke newlines before we log these...
+  ADDED_COOKBOOK_LIST=$(echo $ADDED_COOKBOOK_LIST)
+  DELETED_COOKBOOK_LIST=$(echo $DELETED_COOKBOOK_LIST)
+  ADDED_ROLE_LIST=$(echo $ADDED_ROLE_LIST)
+  DELETED_ROLE_LIST=$(echo $DELETED_ROLE_LIST)
+
   debug "Added cookbooks: $ADDED_COOKBOOK_LIST"
   debug "Removed cookbooks: $DELETED_COOKBOOK_LIST"
   debug "Added roles: $ADDED_ROLE_LIST"
