@@ -1,5 +1,7 @@
 #!/opt/chef/bin/knife exec
 
+# vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
+#
 # Author:: KC Braunschweig (<kcbraunschweig@gmail.com>)
 # Copyright:: Copyright (c) 2013-present Facebook
 # License:: Apache License, Version 2.0
