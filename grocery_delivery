@@ -109,7 +109,7 @@ function update_cookbooks_and_roles() {
   else
     REVNO=$(cat "$REV_CHECKPOINT_FULLPATH")
   fi
-  if [ "$REVNO" = "0" ]; then
+  if [ "$REVNO" = '0' ]; then
     # 'knife cookbook upload -a' uploads all your cookbooks.
     ADDED_COOKBOOK_LIST="-a"
     ADDED_ROLE_LIST=$(cd ${ROLES_FULLPATH} && find . -maxdepth 1 -type f | \
