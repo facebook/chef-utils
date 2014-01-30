@@ -19,7 +19,8 @@ function vcs_update() {
   vcs_update_orig_wd=$(pwd)
   cd $1
   $GIT pull origin master || return 1
-  $GIT submodule update --init || return 2
+  $GIT submodule sync || return 2
+  $GIT submodule update --init || return 3
   cd $vcs_update_orig_wd
 }
 
