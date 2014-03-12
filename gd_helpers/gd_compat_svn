@@ -22,4 +22,4 @@ function vcs_latest_revision() {
 
 function vcs_first_revision() { echo '0'; }
 
-function vcs_diff_summarize() { $SVN diff -r $1:$2 --summarize 2>&1; }
+function vcs_diff_summarize() { $SVN diff -r $1:$2 --summarize; }
