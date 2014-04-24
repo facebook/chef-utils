@@ -5,4 +5,4 @@ Facebook.
 
 License
 =======
-These files are available under the Apache license.
+These files are available under the Apache license unless otherwise specified.
