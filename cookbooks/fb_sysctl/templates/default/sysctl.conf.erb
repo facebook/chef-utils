@@ -1,0 +1,13 @@
+# Facebook sysctl.conf
+#
+# vim: syntax=ruby:expandtab:shiftwidth=4:softtabstop=4:tabstop=4
+#
+# You don't need to touch this!!
+#
+# For new defaults, update the attributes/ directory in this cookbook
+#
+# For new overrides, add a cookbook and change the data in your recipe
+#
+<% node['fb']['fb_sysctl'].keys.sort.each do |key| %>
+<%= key %> = <%= node['fb']['fb_sysctl'][key] %>
+<% end %>
