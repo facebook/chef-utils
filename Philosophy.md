@@ -2,7 +2,7 @@ This file is intended to document the general principals behind how Facebook
 thinks about and operates system configuration management. We think most of
 these apply at any scale, but certainly make large scale easier.
 
-# Guiding Principals
+# Guiding Principles
 
 ## Always keep basic scalable building blocks in mind
 
