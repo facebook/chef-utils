@@ -115,7 +115,7 @@ log_location STDOUT
 node_name user
 chef_server_url "http://#{@host}:#{@port}"
 cache_type 'BasicFile'
-client_key #{@client_key}
+client_key '#{@client_key}'
 cache_options(:path => File.expand_path("#{@checksum_dir}"))
 cookbook_path [
 BLOCK
