@@ -5,7 +5,7 @@ Ohai!
 
 Welcome to grocery-delivery, software to keep cookbooks, roles, and databags in
 sync between a VCS repo and a chef server. The idea is that if you have
-multiple, distinct Chef serverinstances that should all be identical, they can
+multiple, distinct Chef server instances that should all be identical, they can
 all run this script in cron. The script uses proper locking, so you should be
 able to run it every minute.
 
