@@ -25,11 +25,11 @@ when 'debian'
   svc_name = 'cron'
 when 'mac_os_x'
   svc_name = 'com.vix.cron'
-when 'rhel', 'fedora', 'suse'
-  package_name = node.centos6? ? 'cronie' : 'vixie-cron'
+when 'rhel'
+  package_name = node['platform_version'] >= 6 ? 'cronie' : 'vixie-cron'
   svc_name = 'crond'
-when 'fboss'
-  package_name = 'cronie'
+when 'fedora', 'suse'
+  package_name 'cronie'
   svc_name = 'crond'
 end
 
@@ -71,7 +71,7 @@ end
 
 # Horrible hack for Mac
 cookbook_file '/usr/local/bin/osx_make_crond.sh' do
-  only_if { node.macosx? }
+  only_if { node['platform_family'] == 'mac_os_x' }
   source 'osx_make_crond.sh'
   owner 'root'
   group 0
@@ -79,14 +79,14 @@ cookbook_file '/usr/local/bin/osx_make_crond.sh' do
 end
 
 execute 'osx_make_crond.sh' do
-  only_if { node.macosx? }
+  only_if { node['platform_family'] == 'mac_os_x' }
   command '/usr/local/bin/osx_make_crond.sh'
 end
 
 # in Linux, GNU/Vixie cron can handle the "cron.hourly/daily" folders for
 # us. on OS/X, we need to explicitly install and activate anacron to use
 # them.
-if node.macosx?
+if node['platform_family'] == 'mac_os_x'
   execute 'load_anacron' do
     action :nothing
     command 'port load anacron'

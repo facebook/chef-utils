@@ -1,8 +1,7 @@
 #
 # THIS FILE IS CONTROLLED BY CHEF, DO NOT EDIT!
 #
-# You may add cronjobs following the instructions in
-#   chef/cookbooks/core/fb_cron/README.md
+# You may add cronjobs following the instructions in fb_cron/README.md
 # 
 <% node['fb']['fb_cron']['jobs'].to_hash.each do |name, job| -%>
 <% job['user'] = 'root' unless job['user'] -%>

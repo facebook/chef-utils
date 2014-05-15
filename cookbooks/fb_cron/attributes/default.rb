@@ -40,5 +40,5 @@ if node['os'] == 'linux'
 end
 
 default['fb']['fb_cron'] = {
-  'jobs' = jobs
+  'jobs' => jobs
 }
