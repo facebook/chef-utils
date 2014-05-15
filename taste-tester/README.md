@@ -38,9 +38,8 @@ See the help for futher information.
 
 ## Prerequisites
 
-* Taste-tester assumes that /etc/chef/client.rb and /etc/chef/client.pem on your
-servers are both symlinks and that your real files are /etc/chef/client-prod.rb
-and /etc/chef/client-prod.pem
+* Taste-tester assumes that /etc/chef/client.rb on your servers is a symlink and
+that your real config is /etc/chef/client-prod.rb
 
 * Taste-tester assumes that it's generally safe to "go back" to production. I.e.
 We set things up so you can set a cronjob to un-taste-test a server after the
@@ -55,10 +54,10 @@ production. Specifically that you don't use versions or environments.
 Taste-tester touches `/etc/chef/test_timestamp` on the remote server as far into
 the future as the user wants to test (default is 1h). You should have a cronjob
 to check the timestamp of this file, and if it is old, remove it and put the
-symlinks for /etc/chef/client.rb and /etc/chef/client.pem back to where they
-belong.
+symlinks for /etc/chef/client.rb back to where they belong.
 
-A utility to do this is forthcoming.
+A small shell script to do this is included called `taste-untester`. We
+recommend running this at least every 15 minutes.
 
 ## Config file
 
