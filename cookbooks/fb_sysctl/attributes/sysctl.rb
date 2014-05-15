@@ -44,10 +44,10 @@ end
 
 # Default IPv6 settings
 if File.exists?('/proc/sys/net/ipv6')
-  ipv6_sysctl = {
+  {
     'net.ipv6.conf.eth0.accept_ra' => 1,
     'net.ipv6.conf.eth0.autoconf' => 0,
-  }.each.each do |key, val|
+  }.each do |key, val|
     default['fb']['fb_sysctl'][key] = val
   end
 end

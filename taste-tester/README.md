@@ -6,8 +6,8 @@ Ohai!
 Welcome to taste-tester, software to manage a chef-zero instance and use it to
 test changes on production servers.
 
-At it's core, taste-tester starts up a chef-zero server on localhost, uploads a
-repository to it, ssh's to a remote server and points it's configs to your new
+At its core, taste-tester starts up a chef-zero server on localhost, uploads a
+repository to it, ssh's to a remote server and points its configs to your new
 chef-zero instance.
 
 Further, it keeps track of where in git you were when that happened so future
@@ -83,15 +83,16 @@ All command-line options are available in the config file:
 
 The following options are also available:
 * base_dir - The directory in the repo under which to find chef configs.
-Default: `chef`
+  Default: `chef`
 * cookbook_dirs - An array of cookbook directories relative to base_dir.
-Default: `['cookbooks']
+  Default: `['cookbooks']
 * role_dir - A directory of roles, relative to base_dir. Default: `roles`
-* databag_dir - A directory of roles, relative to base_dir. Default: `databags`
+* databag_dir - A directory of databags, relative to base_dir.
+  Default: `databags`
 * ref_file - The file to store the last git revision we uploaded in. Default:
-`#{ENV['HOME']}/.chef/taste-tester-ref.txt`
+  `#{ENV['HOME']}/.chef/taste-tester-ref.txt`
 * checksum_dir - The checksum directory to put in knife.conf for users. Default:
-`#{ENV['HOME']}/.chef/checksums`
+  `#{ENV['HOME']}/.chef/checksums`
 
 ## Plugin
 
@@ -118,7 +119,7 @@ hostnames.
 * self.test_remote_cmds(dryrun, hostname)
 
 Additional commands to run on the remote host when putting it in test mode.
-Should return an array of strongs. `hostname` is the hostname.
+Should return an array of strings. `hostname` is the hostname.
 
 * self.post_test(dryrun, repo, hosts)
 
