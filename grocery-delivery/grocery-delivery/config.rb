@@ -25,6 +25,7 @@ module GroceryDelivery
     knife_config '/root/.chef/knife.rb'
     knife_bin '/opt/chef/bin/knife'
     vcs_type 'svn'
+    vcs_path nil
     plugin_path '/etc/gd-plugin.rb'
   end
 end
