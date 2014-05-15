@@ -133,31 +133,6 @@ json_attribs             '/etc/chef/run-list.json'
 Ohai::Config[:plugin_path] << '/etc/chef/ohai_plugins'
 
       eos
-      ttconfig += <<-'eos'
-# Attempt to load any handlers we can find
-begin
-  Dir.glob('/etc/chef/handlers/*.rb').each do |x|
-    require x
-  end
-  # Since the filename doesn't tell us the class name, expect them all to use
-  # the FB module and load anything that's a class with a :report method.
-  FB.constants.each do |const|
-    klass = Object.const_get('FB').const_get(const)
-    if Class === klass && klass.instance_methods(false).include?(:report)
-      puts "INFO: Registering FB::#{const.to_s} as a report/exception handler"
-      handler = klass.new
-      report_handlers << handler
-      exception_handlers << handler
-    end
-  end
-rescue => e
-  # If our crazy assumptions failed us while trying to load handlers, we can
-  # still move on and try the chef run.
-  puts 'WARN: Loading handlers in client.rb failed, trying to continue anyway'
-  puts "WARN: Exception thrown was: #{e}"
-end
-
-      eos
       ttconfig += <<-eos
 puts 'INFO: Running on #{@name} in taste-tester by #{@user}'
       eos
