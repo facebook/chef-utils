@@ -1,0 +1,74 @@
+#!/bin/bash
+
+CONFLINK='/etc/chef/client.rb'
+PRODCONF='/etc/chef/client-prod.rb'
+CERTLINK='/etc/chef/client.pem'
+PRODCERT='/etc/chef/client-prod.pem'
+STAMPFILE='/etc/chef/test_timestamp'
+MYSELF=$0
+DRYRUN=0
+DEBUG=0
+
+debug() {
+  [ "$DEBUG" -eq 1 ] && echo $*
+}
+
+set_server_to_prod() {
+  ME=$(basename $MYSELF)
+  rm -f $CONFLINK
+  ln -s $PRODCONF $CONFLINK
+  # Legacy FB stuff, will go away
+  if [ -h $CERTLINK ]; then
+    rm $CERTLINK
+    ln -s $PRODCERT $CERTLINK
+  fi
+  rm -f $STAMPFILE
+  logger -p user.warning -t $ME Reverted to production Chef.
+  if [ -e '/usr/bin/wall' ]; then
+    echo "Reverted $(hostname) to production Chef." | wall
+  fi
+}
+
+check_server() {
+  if [ ! -h $CONFLINK ]; then
+    return
+  fi
+  current_config=$(readlink $CONFLINK)
+  if [ "$current_config" = $PRODCONF ]; then
+    if [ -f "$STAMPFILE" ]; then
+      run_cmd "rm -f $STAMPFILE"
+    fi
+    return
+  fi
+
+  now=$(date +%s)
+  if [ "$(uname)" = 'Darwin' ]; then
+    stamp_time=$(stat -f "%m" -t "%z" $STAMPFILE)
+    stamp=$(date -r $stamp_time)
+  else
+    stamp=$(stat -c %y $STAMPFILE)
+    stamp_time=$(date +%s -d "$stamp")
+  fi
+
+  debug "$now vs $stamp_time"
+  if [ "$now" -gt "$stamp_time" ]; then
+    if [ $DRYRUN -eq 0 ]; then
+      set_server_to_prod
+    else
+      echo "DRYRUN: Would return server to prod"
+    fi
+  fi
+}
+
+while getopts 'dn' opt; do
+  case "$opt" in
+    d)
+      DEBUG=1
+      ;;
+    n)
+      DRYRUN=1
+      ;;
+  esac
+done
+
+check_server
