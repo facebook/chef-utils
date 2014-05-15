@@ -2,6 +2,7 @@
 # rubocop:disable UnusedMethodArgument
 
 require_relative 'logging'
+require_relative '../../between-meals/util'
 
 module TasteTester
   # Hooks placeholders
