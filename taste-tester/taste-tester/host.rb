@@ -59,9 +59,9 @@ module TasteTester
         " for #{@user}"
       ssh << "touch -t #{@timestamp} /etc/chef/test_timestamp"
       ssh << "echo '#{@serialized_config}' | base64 --decode --ignore-garbage" +
-        " > /etc/chef/client-#{@user}-taste-tester.rb"
+        ' > /etc/chef/client-taste-tester.rb'
       ssh << 'rm -vf /etc/chef/client.rb'
-      ssh << "ln -vs /etc/chef/client-#{@user}-taste-tester.rb" +
+      ssh << 'ln -vs /etc/chef/client-taste-tester.rb' +
         ' /etc/chef/client.rb'
       ssh.run!
       cmds = TasteTester::Hooks.test_remote_cmds(TasteTester::Config.dryrun,
@@ -77,7 +77,7 @@ module TasteTester
       logger.info "Removing #{@name} from taste-tester"
       ssh = TasteTester::SSH.new(@name)
       ssh << 'rm -vf /etc/chef/client.rb'
-      ssh << "rm -vf /etc/chef/client-#{@user}-taste-tester.rb"
+      ssh << 'rm -vf /etc/chef/client-taste-tester.rb'
       ssh << 'ln -vs /etc/chef/client-prod.rb /etc/chef/client.rb'
       ssh << 'rm -vf /etc/chef/client.pem'
       ssh << 'ln -vs /etc/chef/client-prod.pem /etc/chef/client.pem'
@@ -88,13 +88,20 @@ module TasteTester
 
     def who_is_testing
       ssh = TasteTester::SSH.new(@name)
-      ssh << 'file /etc/chef/client.rb'
-      # -test is the old filename, remove this at some point
-      user = ssh.run.last.match(/client-(.*)-(taste-tester|test).rb/)
+      ssh << 'grep "^# TasteTester by" /etc/chef/client.rb'
+      user = ssh.run.last.match(/# TasteTester by (.*)$/)
       if user
         user[1]
       else
-        nil
+        # Legacy FB stuff, remove after migration. Safe for everyone else.
+        ssh = TasteTester::SSH.new(@name)
+        ssh << 'file /etc/chef/client.rb'
+        user = ssh.run.last.match(/client-(.*)-(taste-tester|test).rb/)
+        if user
+          user[1]
+        else
+          nil
+        end
       end
     end
 
@@ -133,6 +140,17 @@ json_attribs             '/etc/chef/run-list.json'
 Ohai::Config[:plugin_path] << '/etc/chef/ohai_plugins'
 
       eos
+
+      extra = TasteTester::Hooks.test_remote_client_rb_extra_code(@name)
+      if extra
+        ttconfig += <<-eos
+# Begin user-hook specified code
+#{extra}
+# End user-hook secified code
+
+        eos
+      end
+
       ttconfig += <<-eos
 puts 'INFO: Running on #{@name} in taste-tester by #{@user}'
       eos

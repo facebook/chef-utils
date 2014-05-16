@@ -302,6 +302,10 @@ MODES:
     TasteTester::Commands.runchef
   when :upload
     TasteTester::Commands.upload
+  else
+    logger.error("Invalid mode: #{mode}")
+    puts parser
+    exit(1)
   end
 end
 
