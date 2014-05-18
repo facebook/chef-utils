@@ -223,6 +223,12 @@ MODES:
       options[:servers] = s
     end
 
+    opts.on(
+      '-S', '--[no-]use-ssh-tunnels', 'Protect Chef traffic with SSH tunnels'
+    ) do |s|
+      options[:use_ssh_tunnels] = s
+    end
+
     opts.on('--skip-repo-checks', 'Skip repository sanity checks') do
       options[:skip_repo_checks] = true
     end

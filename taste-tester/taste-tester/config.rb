@@ -22,13 +22,15 @@ module TasteTester
     ref_file "#{ENV['HOME']}/.chef/taste-tester-ref.txt"
     checksum_dir "#{ENV['HOME']}/.chef/checksums"
     skip_repo_checks false
+    chef_client_command 'chef-client'
+    testing_time 3600
+    use_ssh_tunnels true
+
     skip_pre_upload_hook false
     skip_post_upload_hook false
     skip_pre_test_hook false
     skip_post_test_hook false
     skip_repo_checks_hook false
-    chef_client_command 'chef-client'
-    testing_time 3600
 
     def self.cookbooks
       cookbook_dirs.map do |x|
