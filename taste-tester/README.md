@@ -54,10 +54,14 @@ production. Specifically that you don't use versions or environments.
 Taste-tester touches `/etc/chef/test_timestamp` on the remote server as far into
 the future as the user wants to test (default is 1h). You should have a cronjob
 to check the timestamp of this file, and if it is old, remove it and put the
-symlinks for /etc/chef/client.rb back to where they belong.
+symlinks for `/etc/chef/client.rb` back to where they belong.
 
 A small shell script to do this is included called `taste-untester`. We
 recommend running this at least every 15 minutes.
+
+If you let taste-tester setup reverse-SSH tunnels, make sure your untester
+is also killing the ssh tunnel whose PID is in `/etc/chef/test_timestamp`
+(taste-untester will do this for you).
 
 ## Config file
 
@@ -120,6 +124,11 @@ hostnames.
 
 Additional commands to run on the remote host when putting it in test mode.
 Should return an array of strings. `hostname` is the hostname.
+
+* self.test_remote_client_rb_extra_code(hostname)
+
+Should return a string of additional code to include in the remote `client.rb`.
+Example uses: defining json_attribs
 
 * self.post_test(dryrun, repo, hosts)
 
