@@ -15,6 +15,9 @@ debug() {
 
 set_server_to_prod() {
   ME=$(basename $MYSELF)
+  if [ -s $STAMPFILE ]; then
+    kill -- -$(cat $STAMPFILE)
+  fi
   rm -f $CONFLINK
   ln -s $PRODCONF $CONFLINK
   # Legacy FB stuff, will go away

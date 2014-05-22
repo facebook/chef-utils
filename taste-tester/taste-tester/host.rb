@@ -19,14 +19,17 @@ module TasteTester
       @user = ENV['USER']
       @chef_server = server.host
       @serialized_config = Base64.encode64(config).gsub(/\n/, '')
-      @timestamp =
       if TasteTester::Config.testing_until
-        TasteTester::Config.testing_until.
+        @timestamp = TasteTester::Config.testing_until.
           strftime('%y%m%d%H%M.%S')
+        @delta_secs = TasteTester::Config.testing_until.strftime('%s') -
+                      Time.now.stftime('%s')
       else
-        (Time.now + TasteTester::Config.testing_time).
+        @timestamp = (Time.now + TasteTester::Config.testing_time).
           strftime('%y%m%d%H%M.%S')
+        @delta_secs = TasteTester::Config.testing_time
       end
+      @tsfile = '/etc/chef/test_timestamp'
     end
 
     def runchef
@@ -52,18 +55,46 @@ module TasteTester
       end
     end
 
+    def nuke_old_tunnel
+      ssh = TasteTester::SSH.new(@name)
+      # Since commands are &&'d together, and we're using &&, we need to
+      # surround this in paryns, and make sure as a whole it evaluates
+      # to true so it doesn't mess up other things... even though this is
+      # the only thing we're currently executing in this SSH.
+      ssh << "( [ -s #{@tsfile} ] && kill -- -\$(cat #{@tsfile}); true )"
+      ssh.run!
+    end
+
+    def setup_tunnel
+      ssh = TasteTester::SSH.new(@name, 5, true)
+      ssh << "echo \\\$\\\$ > #{@tsfile}"
+      ssh << "touch -t #{@timestamp} #{@tsfile}"
+      ssh << "sleep #{@delta_secs}"
+      ssh.run!
+    end
+
     def test
       logger.info "Taste-testing on #{@name}"
+
+      # Nuke any existing tunnels that may be there
+      nuke_old_tunnel
+
+      # Then setup the testing
       ssh = TasteTester::SSH.new(@name)
       ssh << 'logger -t taste-tester Moving server into taste-tester' +
         " for #{@user}"
-      ssh << "touch -t #{@timestamp} /etc/chef/test_timestamp"
+      ssh << "touch -t #{@timestamp} #{@tsfile}"
       ssh << "echo '#{@serialized_config}' | base64 --decode --ignore-garbage" +
         ' > /etc/chef/client-taste-tester.rb'
       ssh << 'rm -vf /etc/chef/client.rb'
-      ssh << 'ln -vs /etc/chef/client-taste-tester.rb' +
-        ' /etc/chef/client.rb'
+      ssh << '( ln -vs /etc/chef/client-taste-tester.rb' +
+        ' /etc/chef/client.rb; true )'
       ssh.run!
+
+      # Then setup the tunnel
+      setup_tunnel
+
+      # Then run any other stuff they wanted
       cmds = TasteTester::Hooks.test_remote_cmds(TasteTester::Config.dryrun,
                                                  @name)
       if cmds && cmds.any?
@@ -76,6 +107,10 @@ module TasteTester
     def untest
       logger.info "Removing #{@name} from taste-tester"
       ssh = TasteTester::SSH.new(@name)
+      # see above for why this command is funky
+      # We do this even if use_ssh_tunnels is false because we may be switching
+      # from one to the other
+      ssh << "( [ -s #{@tsfile} ] && kill -- -\$(cat #{@tsfile}); true )"
       ssh << 'rm -vf /etc/chef/client.rb'
       ssh << 'rm -vf /etc/chef/client-taste-tester.rb'
       ssh << 'ln -vs /etc/chef/client-prod.rb /etc/chef/client.rb'
@@ -88,7 +123,7 @@ module TasteTester
 
     def who_is_testing
       ssh = TasteTester::SSH.new(@name)
-      ssh << 'grep "^# TasteTester by" /etc/chef/client.rb'
+      ssh << 'grep \'^# TasteTester by\' /etc/chef/client.rb'
       user = ssh.run.last.match(/# TasteTester by (.*)$/)
       if user
         user[1]
@@ -117,14 +152,18 @@ module TasteTester
 
     def keeptesting
       logger.info "Renewing taste-tester on #{@name} until #{@timestamp}"
-      ssh = TasteTester::SSH.new(@name)
-      ssh << "touch -t #{@timestamp} /etc/chef/test_timestamp"
-      ssh.run!
+      nuke_old_tunnel
+      setup_tunnel
     end
 
     private
 
     def config
+      if TasteTester::Config.use_ssh_tunnels
+        url = 'http://localhost:4001'
+      else
+        url = "http://#{@chef_server}:4000"
+      end
       ttconfig = <<-eos
 # TasteTester by #{@user}
 # Prevent people from screwing up their permissions
@@ -135,7 +174,7 @@ end
 
 log_level                :info
 log_location             STDOUT
-chef_server_url          'http://#{@chef_server}:4000'
+chef_server_url          '#{url}'
 json_attribs             '/etc/chef/run-list.json'
 Ohai::Config[:plugin_path] << '/etc/chef/ohai_plugins'
 

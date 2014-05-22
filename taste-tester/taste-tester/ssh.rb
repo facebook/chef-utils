@@ -8,9 +8,10 @@ module TasteTester
 
     attr_reader :output
 
-    def initialize(host, timeout = 5)
+    def initialize(host, timeout = 5, tunnel = false)
       @host = host
       @timeout = timeout
+      @tunnel = tunnel
       @cmds = []
     end
 
@@ -22,12 +23,12 @@ module TasteTester
 
     def run
       prepare
-      @status, @output = exec(@cmd)
+      @status, @output = exec(@cmd, logger)
     end
 
     def run!
       prepare
-      @status, @output = exec!(@cmd)
+      @status, @output = exec!(@cmd, logger)
     rescue => e
       error = <<-MSG
 SSH returned error while connecting to root@#{@host}
@@ -45,8 +46,11 @@ MSG
         logger.debug "Will run: '#{cmd}' on #{@host}"
       end
       cmds = @cmds.join(' && ')
-      @cmd = "ssh -T -o BatchMode=yes -o ConnectTimeout=#{@timeout} " +
-        "root@#{@host} \"#{cmds}\""
+      @cmd = "ssh -T -o BatchMode=yes -o ConnectTimeout=#{@timeout} "
+      if @tunnel
+        @cmd += ' -f -R 4001:localhost:4000 '
+      end
+      @cmd += "root@#{@host} \"#{cmds}\""
     end
   end
 end
