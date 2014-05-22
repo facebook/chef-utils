@@ -175,7 +175,6 @@ end
 log_level                :info
 log_location             STDOUT
 chef_server_url          '#{url}'
-json_attribs             '/etc/chef/run-list.json'
 Ohai::Config[:plugin_path] << '/etc/chef/ohai_plugins'
 
       eos
