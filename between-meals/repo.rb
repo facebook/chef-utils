@@ -6,6 +6,7 @@ module BetweenMeals
   # Local checkout wrapper
   class Repo
     attr_writer :bin
+    attr_reader :repo_path
 
     def initialize(repo_path, logger)
       @repo_path = repo_path
