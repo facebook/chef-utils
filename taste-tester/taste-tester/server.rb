@@ -29,6 +29,10 @@ module TasteTester
       end
       @user = ENV['USER']
       @port = port
+      # If we are using SSH tunneling listen on localhost, otherwise listen
+      # on all addresses - both v4 and v6. Note that on localhost, ::1 is
+      # v6-only, so we default to 127.0.0.1 instead.
+      @addr = TasteTester::Config.use_ssh_tunnels ? '127.0.0.1' : '::'
       @host = Socket.gethostname
     end
 
@@ -46,7 +50,7 @@ module TasteTester
 
       FileUtils.touch(@ref_file)
       Mixlib::ShellOut.new(
-        "/opt/chef/embedded/bin/chef-zero --host 0.0.0.0 --port #{@port} -d"
+        "/opt/chef/embedded/bin/chef-zero --host #{@addr} --port #{@port} -d"
       ).run_command.error!
     end
 
