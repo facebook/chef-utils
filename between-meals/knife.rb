@@ -107,7 +107,6 @@ module BetweenMeals
     end
 
     def write_user_config
-      # rubocop:disable LineLength
       cfg = <<-BLOCK
 user = ENV['USER']
 log_level :info
@@ -123,7 +122,9 @@ BLOCK
         cfg << "  \"#{dir}\",\n"
       end
       cfg << "]\n"
-      # rubocop:enable LineLength
+      unless File.directory?(File.dirname(@config)) 
+        Dir.mkdir(File.dirname(@config), 0755) 
+      end
       unless File.exists?(@config)
         @logger.debug("Generating #{@config}")
         File.write(@config, cfg)
