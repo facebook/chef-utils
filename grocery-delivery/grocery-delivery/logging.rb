@@ -35,6 +35,7 @@ module GroceryDelivery
     end
 
     def self.info(msg)
+      msg.prepend('INFO: ')
       logit(Syslog::LOG_INFO, msg)
     end
 

@@ -46,7 +46,7 @@ module BetweenMeals
         s = Mixlib::ShellOut.new(
           "#{@bin} diff -r #{start_ref}:#{end_ref} --summarize #{@repo_path}")
         s.run_command.error!
-        @logger.debug("Diff between #{start_ref} and #{end_ref}")
+        @logger.info("Diff between #{start_ref} and #{end_ref}")
         s.stdout.lines.map do |line|
           m = line.match(/^(\w)\s+(\S+)$/)
           {

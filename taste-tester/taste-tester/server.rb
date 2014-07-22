@@ -23,8 +23,8 @@ module TasteTester
         begin
           FileUtils.mkpath(ref_dir)
         rescue => e
-          logger.info("Chef temp dir #{ref_dir} missing and can't be created")
-          logger.info(e)
+          logger.warn("Chef temp dir #{ref_dir} missing and can't be created")
+          logger.warn(e)
         end
       end
       @user = ENV['USER']
@@ -33,7 +33,7 @@ module TasteTester
       # on all addresses - both v4 and v6. Note that on localhost, ::1 is
       # v6-only, so we default to 127.0.0.1 instead.
       @addr = TasteTester::Config.use_ssh_tunnels ? '127.0.0.1' : '::'
-      @host = Socket.gethostname
+      @host = 'localhost'
     end
 
     def _start
@@ -57,7 +57,7 @@ module TasteTester
     def start
       return if running?
       File.delete(@ref_file) if File.exists?(@ref_file)
-      logger.info('Starting taste-tester server')
+      logger.warn('Starting taste-tester server')
       _start
     end
 
@@ -68,12 +68,12 @@ module TasteTester
     end
 
     def stop
-      logger.info('Stopping taste-tester server')
+      logger.warn('Stopping taste-tester server')
       _stop
     end
 
     def restart
-      logger.info('Restarting taste-tester server')
+      logger.warn('Restarting taste-tester server')
       if running?
         _stop
         # you have to give it a moment to stop or the stat fails

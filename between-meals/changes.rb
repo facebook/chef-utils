@@ -1,7 +1,6 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 # rubocop:disable ClassVars
 
-
 module BetweenMeals
   # A set of classes that represent a given item's change (a cookbook
   # that's changed, a role that's changed or a databag item that's changed).
@@ -23,10 +22,20 @@ module BetweenMeals
         @@logger = log
       end
 
+      def self.info(msg)
+        if @@logger
+          @@logger.info(msg)
+        end
+      end
+
       def self.debug(msg)
         if @@logger
           @@logger.debug(msg)
         end
+      end
+
+      def info(msg)
+        BetweenMeals::Changes::Change.info(msg)
       end
 
       def debug(msg)
@@ -46,21 +55,26 @@ module BetweenMeals
         false
       end
 
-      def self.name_from_path(path, cookbook_dirs)
+      def self.explode_path(path, cookbook_dirs)
         cookbook_dirs.each do |dir|
           re = %r{^#{dir}/([^/]+)/.*}
           debug("[cookbook] Matching #{path} against ^#{re}")
           m = path.match(re)
           next unless m
-          debug("Cookbook is #{m[1]}")
-          return m[1]
+          info("Cookbook is #{m[1]}")
+          return {
+            :cookbook_dir => dir,
+            :name => m[1] }
         end
         nil
       end
 
       def initialize(files, cookbook_dirs)
         @files = files
-        @name = self.class.name_from_path(files.sample[:path], cookbook_dirs)
+        @name = self.class.explode_path(
+          files.sample[:path],
+          cookbook_dirs
+        )[:name]
         # if metadata.rb is being deleted
         #   cookbook is marked for deletion
         # otherwise it was modified
@@ -80,8 +94,16 @@ module BetweenMeals
       # create a list of Cookbook objects
       def self.find(list, cookbook_dirs, logger)
         @@logger = logger
+        return [] if list.nil? || list.empty?
+        # rubocop:disable MultilineBlockChain
         list.
-          group_by { |x| self.name_from_path(x[:path], cookbook_dirs) }.
+          group_by do |x|
+            # Group by prefix of cookbok_dir + cookbook_name
+            # so that we treat deletes and modifications across
+            # two locations separately
+            g = self.explode_path(x[:path], cookbook_dirs)
+            g[:cookbook_dir] + '/' + g[:name] if g
+          end.
           map do |_, change|
             # Confirm we're dealing with a cookbook
             # Changes to OWNERS or other stuff that might end up
@@ -93,6 +115,7 @@ module BetweenMeals
               BetweenMeals::Changes::Cookbook.new(change, cookbook_dirs)
             end
           end.compact
+        # rubocop:enable MultilineBlockChain
       end
     end
 
@@ -103,7 +126,7 @@ module BetweenMeals
         debug("[role] Matching #{path} against #{re}")
         m = path.match(re)
         if m
-          debug("Name is #{m[1]}")
+          info("Name is #{m[1]}")
           return m[1]
         end
         nil
@@ -118,6 +141,7 @@ module BetweenMeals
       # create a list of Role objects
       def self.find(list, role_dir, logger)
         @@logger = logger
+        return [] if list.nil? || list.empty?
         list.
           select { |x| self.name_from_path(x[:path], role_dir) }.
           map do |x|
@@ -134,7 +158,7 @@ module BetweenMeals
         debug("[databag] Matching #{path} against #{re}")
         m = path.match(re)
         if m
-          debug("Databag is #{m[1]} item is #{m[2]}")
+          info("Databag is #{m[1]} item is #{m[2]}")
           return m[1], m[2]
         end
         nil
@@ -147,6 +171,7 @@ module BetweenMeals
 
       def self.find(list, databag_dir, logger)
         @@logger = logger
+        return [] if list.nil? || list.empty?
         list.
           select { |x| self.name_from_path(x[:path], databag_dir) }.
           map do |x|

@@ -17,7 +17,7 @@ module BetweenMeals
       @@logger = logger if logger
       t0 = Time.now
       yield
-      debug("Executed in #{format('%.2f', Time.now - t0)}s")
+      info("Executed in #{format('%.2f', Time.now - t0)}s")
     end
 
     def exec!(command, logger = nil)
@@ -35,19 +35,19 @@ module BetweenMeals
 
     private
 
-    def debug(msg)
-      @@logger.debug(msg) if @@logger
+    def info(msg)
+      @@logger.info(msg) if @@logger
     end
 
     def execute(command)
-      debug("Running: #{command}")
+      info("Running: #{command}")
       c = Mixlib::ShellOut.new(command)
       c.run_command
       c.stdout.lines.each do |line|
-        debug("STDOUT: #{line.strip}")
+        info("STDOUT: #{line.strip}")
       end
       c.stderr.lines.each do |line|
-        debug("STDERR: #{line.strip.red}")
+        info("STDERR: #{line.strip.red}")
       end
       return c
     end

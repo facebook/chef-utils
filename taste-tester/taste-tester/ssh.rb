@@ -43,7 +43,7 @@ MSG
 
     def prepare
       @cmds.each do |cmd|
-        logger.debug "Will run: '#{cmd}' on #{@host}"
+        logger.info("Will run: '#{cmd}' on #{@host}")
       end
       cmds = @cmds.join(' && ')
       @cmd = "ssh -T -o BatchMode=yes -o ConnectTimeout=#{@timeout} "

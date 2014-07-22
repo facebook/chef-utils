@@ -22,8 +22,8 @@ module TasteTester
       if TasteTester::Config.testing_until
         @timestamp = TasteTester::Config.testing_until.
           strftime('%y%m%d%H%M.%S')
-        @delta_secs = TasteTester::Config.testing_until.strftime('%s') -
-                      Time.now.stftime('%s')
+        @delta_secs = TasteTester::Config.testing_until.strftime('%s').to_i -
+                      Time.now.strftime('%s').to_i
       else
         @timestamp = (Time.now + TasteTester::Config.testing_time).
           strftime('%y%m%d%H%M.%S')
@@ -33,7 +33,7 @@ module TasteTester
     end
 
     def runchef
-      logger.info "Running '#{TasteTester::Config.command}' on #{@name}"
+      logger.warn("Running '#{TasteTester::Config.command}' on #{@name}")
       status = IO.popen(
         "ssh root@#{@name} #{TasteTester::Config.command}"
       ) do |io|
@@ -45,8 +45,8 @@ module TasteTester
         io.close
         $CHILD_STATUS.to_i
       end
-      logger.info "Finished #{TasteTester::Config.command}" +
-        " on #{@name} with status #{status}"
+      logger.warn("Finished #{TasteTester::Config.command}" +
+        " on #{@name} with status #{status}")
       if status == 0
         msg = "#{TasteTester::Config.command} was successful" +
           ' - please log to the host and confirm all the intended' +
@@ -74,7 +74,7 @@ module TasteTester
     end
 
     def test
-      logger.info "Taste-testing on #{@name}"
+      logger.warn("Taste-testing on #{@name}")
 
       # Nuke any existing tunnels that may be there
       nuke_old_tunnel
@@ -84,7 +84,7 @@ module TasteTester
       ssh << 'logger -t taste-tester Moving server into taste-tester' +
         " for #{@user}"
       ssh << "touch -t #{@timestamp} #{@tsfile}"
-      ssh << "echo '#{@serialized_config}' | base64 --decode --ignore-garbage" +
+      ssh << "echo -n '#{@serialized_config}' | base64 --decode" +
         ' > /etc/chef/client-taste-tester.rb'
       ssh << 'rm -vf /etc/chef/client.rb'
       ssh << '( ln -vs /etc/chef/client-taste-tester.rb' +
@@ -105,7 +105,7 @@ module TasteTester
     end
 
     def untest
-      logger.info "Removing #{@name} from taste-tester"
+      logger.warn("Removing #{@name} from taste-tester")
       ssh = TasteTester::SSH.new(@name)
       # see above for why this command is funky
       # We do this even if use_ssh_tunnels is false because we may be switching
@@ -151,7 +151,7 @@ module TasteTester
     end
 
     def keeptesting
-      logger.info "Renewing taste-tester on #{@name} until #{@timestamp}"
+      logger.warn("Renewing taste-tester on #{@name} until #{@timestamp}")
       nuke_old_tunnel
       setup_tunnel
     end

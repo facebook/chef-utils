@@ -6,7 +6,7 @@ module TasteTester
   # Logging wrapper
   module Logging
     @@use_log_formatter = false
-    @@level = Logger::INFO
+    @@level = Logger::WARN
     @@formatter_proc = nil
 
     def logger
@@ -28,15 +28,11 @@ module TasteTester
       @@use_log_formatter = use_log_formatter
     end
 
-    def self.debug=(debug)
-      if debug
-        @@level = Logger::DEBUG
-      else
-        @@level = Logger::INFO
-      end
+    def self.verbosity=(level)
+      @@level = level
     end
 
-    def formatter(x = 1)
+    def formatter
       return @@formatter_proc if @@formatter_proc
       if @@use_log_formatter
         proc do |severity, datetime, progname, msg|
@@ -47,7 +43,7 @@ module TasteTester
         end
       else
         proc do |severity, datetime, progname, msg|
-          msg.prepend("#{severity}: ") unless severity == 'INFO'
+          msg.prepend("#{severity}: ") unless severity == 'WARN'
           if severity == 'ERROR'
             msg = msg.red
           end

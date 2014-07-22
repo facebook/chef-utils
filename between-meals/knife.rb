@@ -2,6 +2,7 @@
 
 require 'json'
 require 'fileutils'
+require 'digest/md5'
 require_relative 'util'
 
 module BetweenMeals
@@ -122,11 +123,13 @@ BLOCK
         cfg << "  \"#{dir}\",\n"
       end
       cfg << "]\n"
-      unless File.directory?(File.dirname(@config)) 
-        Dir.mkdir(File.dirname(@config), 0755) 
+      unless File.directory?(File.dirname(@config))
+        Dir.mkdir(File.dirname(@config), 0755)
       end
-      unless File.exists?(@config)
-        @logger.debug("Generating #{@config}")
+      if !File.exists?(@config) ||
+         ::Digest::MD5.hexdigest(cfg) !=
+          ::Digest::MD5.hexdigest(File.read(@config))
+        @logger.info("Generating #{@config}")
         File.write(@config, cfg)
       end
 
@@ -163,7 +166,7 @@ IAMAEpsWX2s2A6phgMCx7kH6wMmoZn3hb7Thh9+PfR8Jtp2/7k+ibCeF4gEWUCs5
     BLOCK
 
       unless File.exists?(@pem)
-        @logger.debug("Generating #{@pem}")
+        @logger.info("Generating #{@pem}")
         File.write(@pem, pem)
       end
     end

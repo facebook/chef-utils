@@ -32,22 +32,22 @@ module TasteTester
     def self.status
       server = TasteTester::Server.new
       if TasteTester::Server.running?
-        logger.info("Local taste-tester server running on port #{server.port}")
+        logger.warn("Local taste-tester server running on port #{server.port}")
         if server.latest_uploaded_ref
-          logger.info('Latest uploaded revision is ' +
+          logger.warn('Latest uploaded revision is ' +
             server.latest_uploaded_ref)
         else
-          logger.info('No cookbooks/roles uploads found')
+          logger.warn('No cookbooks/roles uploads found')
         end
       else
-        logger.info('Local taste-tester server not running')
+        logger.warn('Local taste-tester server not running')
       end
     end
 
     def self.test
       hosts = TasteTester::Config.servers
       unless hosts
-        logger.info('You must provide a hostname')
+        logger.warn('You must provide a hostname')
         exit(1)
       end
       unless TasteTester::Config.yes
@@ -56,7 +56,7 @@ module TasteTester
         exit(1) unless ans =~ /^[yY](es)?$/
       end
       if TasteTester::Config.linkonly && TasteTester::Config.really
-        logger.info('Skipping upload at user request... potentially dangerous!')
+        logger.warn('Skipping upload at user request... potentially dangerous!')
       else
         if TasteTester::Config.linkonly
           logger.warn('Ignoring --linkonly because --really not set')
@@ -89,7 +89,7 @@ module TasteTester
     def self.untest
       hosts = TasteTester::Config.servers
       unless hosts
-        logger.info('You must provide a hostname')
+        logger.warn('You must provide a hostname')
         exit(1)
       end
       server = TasteTester::Server.new
@@ -102,7 +102,7 @@ module TasteTester
     def self.runchef
       hosts = TasteTester::Config.servers
       unless hosts
-        logger.info('You must provide a hostname')
+        logger.warn('You must provide a hostname')
         exit(1)
       end
       server = TasteTester::Server.new
@@ -115,7 +115,7 @@ module TasteTester
     def self.keeptesting
       hosts = TasteTester::Config.servers
       unless hosts
-        logger.info('You must provide a hostname')
+        logger.warn('You must provide a hostname')
         exit(1)
       end
       server = TasteTester::Server.new

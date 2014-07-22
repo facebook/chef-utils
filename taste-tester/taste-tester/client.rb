@@ -42,13 +42,13 @@ module TasteTester
     def upload
       checks unless @skip_checks
 
-      logger.info("Using #{TasteTester::Config.repo}")
-      logger.debug("Last commit: #{@repo.head_rev} " +
+      logger.warn("Using #{TasteTester::Config.repo}")
+      logger.info("Last commit: #{@repo.head_rev} " +
         "'#{@repo.last_msg.split("\n").first}'" +
         " by #{@repo.last_author[:email]}")
 
       if @force || !@server.latest_uploaded_ref
-        logger.debug('Full upload forced') if @force
+        logger.info('Full upload forced') if @force
         unless TasteTester::Config.skip_pre_upload_hook
           TasteTester::Hooks.pre_upload(TasteTester::Config.dryrun,
                                         @repo,
@@ -87,14 +87,14 @@ module TasteTester
     private
 
     def full
-      logger.info('Doing full upload')
+      logger.warn('Doing full upload')
       @knife.cookbook_upload_all
       @knife.role_upload_all
       @knife.databag_upload_all
     end
 
     def partial
-      logger.debug('Doing differential upload from ' +
+      logger.info('Doing differential upload from ' +
                    @server.latest_uploaded_ref)
       changeset = BetweenMeals::Changeset.new(
         logger,
@@ -124,41 +124,41 @@ module TasteTester
       didsomething = false
       unless deleted_cookbooks.empty?
         didsomething = true
-        logger.info("Deleting cookbooks: [#{deleted_cookbooks.join(' ')}]")
+        logger.warn("Deleting cookbooks: [#{deleted_cookbooks.join(' ')}]")
         @knife.cookbook_delete(deleted_cookbooks)
       end
 
       unless modified_cookbooks.empty?
         didsomething = true
-        logger.info("Uploading cookbooks: [#{modified_cookbooks.join(' ')}]")
+        logger.warn("Uploading cookbooks: [#{modified_cookbooks.join(' ')}]")
         @knife.cookbook_upload(modified_cookbooks)
       end
 
       unless deleted_roles.empty?
         didsomething = true
-        logger.info("Deleting roles: [#{deleted_roles.join(' ')}]")
+        logger.warn("Deleting roles: [#{deleted_roles.join(' ')}]")
         @knife.role_delete(deleted_roles)
       end
 
       unless modified_roles.empty?
         didsomething = true
-        logger.info("Uploading roles: [#{modified_roles.join(' ')}]")
+        logger.warn("Uploading roles: [#{modified_roles.join(' ')}]")
         @knife.role_upload(modified_roles)
       end
 
       unless deleted_databags.empty?
         didsomething = true
-        logger.info("Deleting databags: [#{deleted_databags.join(' ')}]")
+        logger.warn("Deleting databags: [#{deleted_databags.join(' ')}]")
         @knife.databag_delete(deleted_databags)
       end
 
       unless modified_databags.empty?
         didsomething = true
-        logger.info("Uploading databags: [#{modified_databags.join(' ')}]")
+        logger.warn("Uploading databags: [#{modified_databags.join(' ')}]")
         @knife.databag_upload(modified_databags)
       end
 
-      logger.info('Nothing to upload!') unless didsomething
+      logger.warn('Nothing to upload!') unless didsomething
     end
   end
 end
