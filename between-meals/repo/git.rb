@@ -103,18 +103,31 @@ module BetweenMeals
           else
             # We've seen some weird non-reproducible failures here
             # Report and blow up
-            logger.error(
+            @logger.error(
               'Something went wrong. Please please report this output.'
             )
-            logger.error('Error on:')
-            logger.error(line)
-            logger.error('All files:')
-            logger.error(s.stdout.lines)
+            @logger.error('Error on:')
+            @logger.error(line)
+            @logger.error('All files:')
+            @logger.error(s.stdout.lines)
             exit 1
           end
         end
         # Handle renames, see big comment above
         changes.flatten
+      end
+
+      def update
+        cmd = Mixlib::ShellOut.new(
+          "#{@bin} pull --rebase", :cwd => File.expand_path(@repo_path)
+        )
+        cmd.run_command
+        if cmd.exitstatus != 0
+          @logger.error('Something went wrong with git!')
+          @logger.error(cmd.stdout)
+          fail
+        end
+        cmd.stdout
       end
 
       # Return all files
@@ -129,8 +142,8 @@ module BetweenMeals
         )
         cmd.run_command
         if cmd.exitstatus != 0
-          logger.error('Something went wrong with git!')
-          logger.error(cmd.stdout)
+          @logger.error('Something went wrong with git!')
+          @logger.error(cmd.stdout)
           fail
         end
         cmd.stdout
@@ -140,11 +153,11 @@ module BetweenMeals
 
       def diff(start_ref, end_ref)
         if end_ref
-          logger.info("Diff between #{start_ref} and #{end_ref}")
+          @logger.info("Diff between #{start_ref} and #{end_ref}")
           @repo.
             diff(start_ref, end_ref)
         else
-          logger.info("Diff between #{start_ref} and working dir")
+          @logger.info("Diff between #{start_ref} and working dir")
           @repo.
             diff_workdir(
               start_ref,

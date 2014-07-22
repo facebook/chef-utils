@@ -1,21 +1,22 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 
 require 'syslog'
+require 'logger'
 
 module GroceryDelivery
   # Logging wrapper
   # rubocop:disable ClassVars
   module Log
     @@init = false
-    @@isdebug = false
+    @@level = Logger::WARN
 
     def self.init
       Syslog.open(File.basename($PROGRAM_NAME, '.rb'))
       @@init = true
     end
 
-    def self.debug=(val)
-      @@isdebug = val
+    def self.verbosity=(val)
+      @@level = val
     end
 
     def self.logit(level, msg)
@@ -28,15 +29,17 @@ module GroceryDelivery
     end
 
     def self.debug(msg)
-      if @@isdebug
+      if @@level == Logger::DEBUG
         msg.prepend('DEBUG: ')
         logit(Syslog::LOG_DEBUG, msg)
       end
     end
 
     def self.info(msg)
-      msg.prepend('INFO: ')
-      logit(Syslog::LOG_INFO, msg)
+      if @@level == Logger::INFO
+        msg.prepend('INFO: ')
+        logit(Syslog::LOG_INFO, msg)
+      end
     end
 
     def self.warn(msg)

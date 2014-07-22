@@ -17,7 +17,7 @@ module BetweenMeals
         Dir.exists?(@repo_path)
       end
 
-      def head
+      def head_rev
         s = Mixlib::ShellOut.new("#{@bin} info #{@repo_path}").run_command
         s.error!
         s.stdout.each_line do |line|

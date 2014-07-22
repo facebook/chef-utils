@@ -1,6 +1,7 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 
 require 'mixlib/config'
+require 'logger'
 
 module GroceryDelivery
   # Config file parser and config object
@@ -10,7 +11,7 @@ module GroceryDelivery
     extend Mixlib::Config
 
     dry_run false
-    debug false
+    verbosity Logger::WARN
     timestamp false
     config_file '/etc/gd-config.rb'
     pidfile '/var/run/grocery_delivery.pid'

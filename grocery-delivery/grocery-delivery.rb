@@ -10,6 +10,7 @@ require_relative 'grocery-delivery/config'
 require_relative 'grocery-delivery/logging'
 require_relative 'grocery-delivery/hooks'
 require 'optparse'
+require 'logger'
 
 # rubocop:disable GlobalVars
 $success = false
@@ -106,7 +107,7 @@ def partial_upload(knife, repo, checkpoint, local_head)
 end
 
 def upload_changed(repo, checkpoint)
-  local_head = repo.head
+  local_head = repo.head_rev
   base_dir = File.join(GroceryDelivery::Config.master_path,
                        GroceryDelivery::Config.reponame)
 
@@ -138,15 +139,20 @@ def setup_config
     opts.on('-n', '--dry-run', 'Dryrun mode') do |s|
       options[:dry_run] = s
     end
-    opts.on('-d', '--debug', 'Debug mode') do |s|
-      options[:debug] = s
+    opts.on('-v', '--verbosity', 'Verbosity level. Twice for debug.') do
+      # If -vv is supplied this block is executed twice
+      if options[:verbosity]
+        options[:verbosity] = ::Logger::DEBUG
+      else
+        options[:verbosity] = ::Logger::INFO
+      end
     end
     opts.on('-T', '--timestamp', 'Timestamp output') do |s|
       options[:timestamp] = s
     end
     opts.on('-c', '--config-file FILE', 'config file') do |s|
       unless File.exists?(File.expand_path(s))
-        logger.error("Config file #{s} not found.")
+        GroceryDelivery::Log.error("Config file #{s} not found.")
         exit 2
       end
       options[:config_file] = s
@@ -162,7 +168,7 @@ def setup_config
     GroceryDelivery::Config.from_file(options[:config_file])
   end
   GroceryDelivery::Config.merge!(options)
-  GroceryDelivery::Log.debug = GroceryDelivery::Config.debug
+  GroceryDelivery::Log.verbosity = GroceryDelivery::Config.verbosity
   if GroceryDelivery::Config.dry_run
     GroceryDelivery::Log.warn('Dryrun mode activated, no changes will be made.')
   end
@@ -199,7 +205,9 @@ if repo.exists?
   repo.update unless GroceryDelivery::Config.dry_run
 else
   unless GroceryDelivery::Config.repo_url
-    logger.error('No repo URL was specified, and no repo is checked out')
+    GroceryDeliver::Log.error(
+      'No repo URL was specified, and no repo is checked out'
+    )
     exit(1)
   end
   action('Cloning repo')
@@ -220,7 +228,7 @@ if GroceryDelivery::Config.dry_run && !repo.exists?
 end
 
 checkpoint = read_checkpoint
-if repo.exists? && repo.head == checkpoint
+if repo.exists? && repo.head_rev == checkpoint
   GroceryDelivery::Log.warn('Repo has not changed, nothing to do...')
   $success = true
   $status_msg = "Success at #{checkpoint}"

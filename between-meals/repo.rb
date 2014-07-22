@@ -60,12 +60,20 @@ module BetweenMeals
       fail 'Not implemented'
     end
 
+    def latest_revision
+      fail 'Not implemented'
+    end
+
     def create(_url)
       fail 'Not implemented'
     end
 
     # Return files changed between two revisions
     def changes(_start_ref, _end_ref)
+      fail 'Not implemented'
+    end
+
+    def update
       fail 'Not implemented'
     end
 
