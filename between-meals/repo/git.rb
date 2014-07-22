@@ -51,7 +51,7 @@ module BetweenMeals
       # for now, we'll circle back to this.
       #
       # def changes(start_ref, end_ref)
-      #   @logger.debug("Diff between #{start_ref} and #{end_ref}")
+      #   @logger.info("Diff between #{start_ref} and #{end_ref}")
       #   diff(start_ref, end_ref).
       #     map do |obj|
       #     {
@@ -71,13 +71,14 @@ module BetweenMeals
         changes = s.stdout.lines.map do |line|
           # Normal lines are a letter, some space and path, ala:
           # M   foo/bar/baz
-          m = line.match(/^(\w)\s+(\S+)$/)
-          if m
+          m1 = line.match(/^(\w)\s+(\S+)$/)
+          m2 = line.match(/^R(?:\d*)\s+(\S+)\s+(\S+)/)
+          if m1
             {
-              :status => m[1] == 'D' ? :deleted : :modified,
-              :path => m[2].sub("#{@repo_path}/", '')
+              :status => m1[1] == 'D' ? :deleted : :modified,
+              :path => m1[2].sub("#{@repo_path}/", '')
             }
-          else
+          elsif m2
             # We may run into renames sometimes... they take the form of
             # R<numbers>   path1   path2
             # ala:
@@ -89,17 +90,27 @@ module BetweenMeals
             # Anyway, in this case, treat it as if we saw a delete and
             # an add. We're in a map, so we can't just fake an extra iteration,
             # so we'll return an array and then flatten it at the end...
-            m = line.match(/^R(?:\d*)\s+(\S+)\s+(\S+)/)
             [
               {
                 :status => :deleted,
-                :path => m[1].sub("#{@repo_path}/", '')
+                :path => m2[1].sub("#{@repo_path}/", '')
               },
               {
                 :status => :modified,
-                :path => m[2].sub("#{@repo_path}/", '')
+                :path => m2[2].sub("#{@repo_path}/", '')
               }
             ]
+          else
+            # We've seen some weird non-reproducible failures here
+            # Report and blow up
+            logger.error(
+              'Something went wrong. Please please report this output.'
+            )
+            logger.error('Error on:')
+            logger.error(line)
+            logger.error('All files:')
+            logger.error(s.stdout.lines)
+            exit 1
           end
         end
         # Handle renames, see big comment above
@@ -129,11 +140,11 @@ module BetweenMeals
 
       def diff(start_ref, end_ref)
         if end_ref
-          @logger.debug("Diff between #{start_ref} and #{end_ref}")
+          logger.info("Diff between #{start_ref} and #{end_ref}")
           @repo.
             diff(start_ref, end_ref)
         else
-          @logger.debug("Diff between #{start_ref} and working dir")
+          logger.info("Diff between #{start_ref} and working dir")
           @repo.
             diff_workdir(
               start_ref,

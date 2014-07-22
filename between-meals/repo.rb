@@ -5,8 +5,8 @@ require 'mixlib/shellout'
 module BetweenMeals
   # Local checkout wrapper
   class Repo
-    attr_writer :bin
     attr_reader :repo_path
+    attr_writer :bin
 
     def initialize(repo_path, logger)
       @repo_path = repo_path
@@ -16,6 +16,7 @@ module BetweenMeals
       setup
     rescue
       @logger.warn("Unable to read repo from #{File.expand_path(repo_path)}")
+      exit(1)
     end
 
     def self.get(type, repo_path, logger)

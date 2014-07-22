@@ -2,6 +2,11 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 # rubocop:disable UnusedBlockArgument, AlignParameters
 
+if ENV['MY_RUBY_HOME'] && ENV['MY_RUBY_HOME'].include?('rvm')
+  puts 'Please disable RVM before running taste-tester'
+  exit(1)
+end
+
 require 'rubygems'
 require 'time'
 require 'optparse'
@@ -15,7 +20,7 @@ require_relative 'taste-tester/hooks'
 include TasteTester::Logging
 
 if ENV['USER'] == 'root'
-  logger.info 'You should not be running as root'
+  logger.warn('You should not be running as root')
   exit(1)
 end
 
@@ -110,8 +115,13 @@ MODES:
       options[:config_file] = file
     end
 
-    opts.on('-d', '--debug', 'Verbose output') do
-      options[:debug] = true
+    opts.on('-v', '--verbose', 'Verbosity, provide twice for all debug') do
+      # If -vv is supplied this block is executed twice
+      if options[:verbosity]
+        options[:verbosity] = Logger::DEBUG
+      else
+        options[:verbosity] = Logger::INFO
+      end
     end
 
     opts.on('-p', '--plugin-path FILE', String, 'Plugin file') do |file|
@@ -282,7 +292,7 @@ MODES:
     TasteTester::Config.from_file(File.expand_path(options[:config_file]))
   end
   TasteTester::Config.merge!(options)
-  TasteTester::Logging.debug = TasteTester::Config.debug
+  TasteTester::Logging.verbosity = TasteTester::Config.verbosity
   TasteTester::Logging.use_log_formatter = TasteTester::Config.timestamp
 
   if File.exists?(File.expand_path(TasteTester::Config.plugin_path))

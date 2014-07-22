@@ -18,18 +18,18 @@ $lockfileh = nil
 
 def action(msg)
   if GroceryDelivery::Config.dry_run
-    GroceryDelivery::Log.info("[DRYRUN] Would do: #{msg}")
+    GroceryDelivery::Log.warn("[DRYRUN] Would do: #{msg}")
   else
-    GroceryDelivery::Log.info(msg)
+    GroceryDelivery::Log.warn(msg)
   end
 end
 
 def get_lock
-  GroceryDelivery::Log.info('Attempting to acquire lock')
+  GroceryDelivery::Log.warn('Attempting to acquire lock')
   $lockfileh = File.open(GroceryDelivery::Config.lockfile,
                          File::RDWR | File::CREAT, 0600)
   $lockfileh.flock(File::LOCK_EX)
-  GroceryDelivery::Log.info('Lock acquired')
+  GroceryDelivery::Log.warn('Lock acquired')
 end
 
 def write_pidfile
@@ -51,16 +51,16 @@ def read_checkpoint
 end
 
 def full_upload(knife)
-  GroceryDelivery::Log.info('Uploading all cookbooks')
+  GroceryDelivery::Log.warn('Uploading all cookbooks')
   knife.cookbook_upload_all
-  GroceryDelivery::Log.info('Uploading all roles')
+  GroceryDelivery::Log.warn('Uploading all roles')
   knife.role_upload_all
-  GroceryDelivery::Log.info('Uploading all databags')
+  GroceryDelivery::Log.warn('Uploading all databags')
   knife.databag_upload_all
 end
 
 def partial_upload(knife, repo, checkpoint, local_head)
-  GroceryDelivery::Log.info(
+  GroceryDelivery::Log.warn(
     "Determing changes... from #{checkpoint} to #{local_head}"
   )
   changeset = BetweenMeals::Changeset.new(
@@ -93,7 +93,7 @@ def partial_upload(knife, repo, checkpoint, local_head)
     'Deleted databags' => deleted_databags,
   }.each do |msg, list|
     if list
-      GroceryDelivery::Log.info("#{msg}: #{list}")
+      GroceryDelivery::Log.warn("#{msg}: #{list}")
     end
   end
 
@@ -164,7 +164,7 @@ def setup_config
   GroceryDelivery::Config.merge!(options)
   GroceryDelivery::Log.debug = GroceryDelivery::Config.debug
   if GroceryDelivery::Config.dry_run
-    GroceryDelivery::Log.info('Dryrun mode activated, no changes will be made.')
+    GroceryDelivery::Log.warn('Dryrun mode activated, no changes will be made.')
   end
   GroceryDelivery::Hooks.get(GroceryDelivery::Config.plugin_path)
   at_exit do
@@ -211,7 +211,7 @@ end
 GroceryDelivery::Hooks.post_repo_up(GroceryDelivery::Config.dry_run)
 
 if GroceryDelivery::Config.dry_run && !repo.exists?
-  GroceryDelivery::Log.info(
+  GroceryDelivery::Log.warn(
     'In dryrun mode, with no repo, there\'s not much I can dryrun'
   )
   GroceryDelivery::Hooks.postrun(GroceryDelivery::Config.dry_run, true,
@@ -221,7 +221,7 @@ end
 
 checkpoint = read_checkpoint
 if repo.exists? && repo.head == checkpoint
-  GroceryDelivery::Log.info('Repo has not changed, nothing to do...')
+  GroceryDelivery::Log.warn('Repo has not changed, nothing to do...')
   $success = true
   $status_msg = "Success at #{checkpoint}"
 else
@@ -238,7 +238,7 @@ else
   end
 end
 
-GroceryDelivery::Log.info($status_msg)
+GroceryDelivery::Log.warn($status_msg)
 GroceryDelivery::Hooks.postrun(GroceryDelivery::Config.dry_run, $success,
                                $status_msg)
 # rubocop:enable GlobalVars

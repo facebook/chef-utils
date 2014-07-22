@@ -17,7 +17,7 @@ module TasteTester
     databag_dir 'databags'
     config_file '/etc/taste-tester-config.rb'
     plugin_path '/etc/taste-tester-plugin.rb'
-    debug false
+    verbosity Logger::WARN
     timestamp false
     ref_file "#{ENV['HOME']}/.chef/taste-tester-ref.txt"
     checksum_dir "#{ENV['HOME']}/.chef/checksums"
