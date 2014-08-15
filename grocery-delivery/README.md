@@ -1,9 +1,9 @@
-# Grocery-delivery
+# Grocery Delivery
 
 ## Intro
 Ohai!
 
-Welcome to grocery-delivery, software to keep cookbooks, roles, and databags in
+Welcome to Grocery Delivery, software to keep cookbooks, roles, and databags in
 sync between a VCS repo and a chef server. The idea is that if you have
 multiple, distinct Chef server instances that should all be identical, they can
 all run this script in cron. The script uses proper locking, so you should be
@@ -13,8 +13,31 @@ However, there are several things to know:
 * It assumes you don't leverage versions or environments.
 * It assumes you want anything committed to HEAD to be uploaded immediately.
 
-grocery-delivery is pretty customizable. Many things can be tuned from a simple
+Grocery Delivery is pretty customizable. Many things can be tuned from a simple
 config file, and it's pluggable so you can extend it as well.
+
+## Prerequisites
+
+Grocery Delivery is a particular way of managing your Chef infrastructure,
+and it assumes you follow that model consistently. Here are the basic
+principals:
+
+* Checkins are live immediately (which implies code review before merge)
+* Versions are meaningless (ideally, never change them)
+* You want all your chef-servers in sync
+* Everything you care about comes from version control.
+
+We recommend using the whitelist_node_attrs
+(https://github.com/opscode/whitelist-node-attrs) cookbook to prevent node
+attributes being saved back to the server. Or in recent versions of Chef 11,
+this feature is built-in:
+
+http://docs.getchef.com/essentials_node_object.html#whitelist-attributes
+
+## Dependencies
+
+* Mixlib::Config
+* BetweenMeals
 
 ## Config file
 
@@ -32,7 +55,7 @@ All command-line options are available in the config file:
 * pidfile (string, default: `/var/run/grocery_delivery.pid`)
 
 In addition the following are also available:
-* master_path - The top-level path for grocery-delivery's work. Most other
+* master_path - The top-level path for Grocery Delivery's work. Most other
   paths are relative to this. Default: `/var/chef/grocery_delivery_work`
 * repo_url - The URL to clone/checkout if it doesn't exist. Default: `nil`
 * reponame - The relative directory to check the repo out to, inside of
