@@ -9,7 +9,11 @@ module BetweenMeals
     # Git provider
     class Git < BetweenMeals::Repo
       def setup
-        @repo = Rugged::Repository.new(File.expand_path(@repo_path))
+        if File.exists?(File.expand_path(@repo_path))
+          @repo = Rugged::Repository.new(File.expand_path(@repo_path))
+        else
+          @repo = nil 
+        end
         @bin = 'git'
       end
 
@@ -43,8 +47,11 @@ module BetweenMeals
       end
 
       def checkout(url)
-        s = Mixlib::ShellOut.new("#{@bin} clone #{url} #{@repo}").run_command
+        s = Mixlib::ShellOut.new(
+          "#{@bin} clone #{url} #{@repo} #{@repo_path}"
+        ).run_command
         s.error!
+        @repo = Rugged::Repository.new(File.expand_path(@repo_path))
       end
 
       # libgit turns out to be *very* slow at this. Using /usr/bin/git
