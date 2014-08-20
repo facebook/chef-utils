@@ -1,6 +1,7 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 
 require_relative '../repo'
+require_relative '../changeset'
 require 'mixlib/shellout'
 
 module BetweenMeals
@@ -43,12 +44,15 @@ module BetweenMeals
 
       # Return files changed between two revisions
       def changes(start_ref, end_ref)
+        check_refs(start_ref, end_ref)
         s = Mixlib::ShellOut.new(
           "#{@bin} diff -r #{start_ref}:#{end_ref} --summarize #{@repo_path}")
         s.run_command.error!
         @logger.info("Diff between #{start_ref} and #{end_ref}")
         s.stdout.lines.map do |line|
-          m = line.match(/^(\w)\s+(\S+)$/)
+          m = line.match(/^(\w)\w?\s+(\S+)$/)
+          fail "Could not parse line: #{line}" unless m
+
           {
             :status => m[1] == 'D' ? :deleted : :modified,
             :path => m[2].sub("#{@repo_path}/", '')
@@ -92,6 +96,25 @@ module BetweenMeals
 
       def first_revision
         0
+      end
+
+      private
+
+      def check_refs(start_ref, end_ref)
+        s = Mixlib::ShellOut.new(
+              "#{@bin} info -r #{start_ref}",
+              :cwd => @repo_path
+            ).run_command
+        s.error!
+        if end_ref
+          s = Mixlib::ShellOut.new(
+                "#{@bin} info -r #{end_ref}",
+                :cwd => @repo_path
+              ).run_command
+          s.error!
+        end
+      rescue
+        raise Changeset::ReferenceError
       end
     end
   end

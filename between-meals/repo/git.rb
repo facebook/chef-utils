@@ -1,7 +1,9 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
+# rubocop:disable MultilineBlockChain
 
 require 'rugged'
 require 'mixlib/shellout'
+require_relative '../changeset'
 
 module BetweenMeals
   # Local checkout wrapper
@@ -12,7 +14,7 @@ module BetweenMeals
         if File.exists?(File.expand_path(@repo_path))
           @repo = Rugged::Repository.new(File.expand_path(@repo_path))
         else
-          @repo = nil 
+          @repo = nil
         end
         @bin = 'git'
       end
@@ -54,74 +56,27 @@ module BetweenMeals
         @repo = Rugged::Repository.new(File.expand_path(@repo_path))
       end
 
-      # libgit turns out to be *very* slow at this. Using /usr/bin/git
-      # for now, we'll circle back to this.
-      #
-      # def changes(start_ref, end_ref)
-      #   @logger.info("Diff between #{start_ref} and #{end_ref}")
-      #   diff(start_ref, end_ref).
-      #     map do |obj|
-      #     {
-      #       :path => obj.delta.old_file[:path],
-      #       :status => obj.delta.status
-      #     }
-      #   end
-      # end
-
       # Return files changed between two revisions
       def changes(start_ref, end_ref)
+        check_refs(start_ref, end_ref)
         s = Mixlib::ShellOut.new(
           "#{@bin} diff --name-status #{start_ref} #{end_ref}",
           :cwd => File.expand_path(@repo_path)
         )
         s.run_command.error!
-        changes = s.stdout.lines.map do |line|
-          # Normal lines are a letter, some space and path, ala:
-          # M   foo/bar/baz
-          m1 = line.match(/^(\w)\s+(\S+)$/)
-          m2 = line.match(/^R(?:\d*)\s+(\S+)\s+(\S+)/)
-          if m1
-            {
-              :status => m1[1] == 'D' ? :deleted : :modified,
-              :path => m1[2].sub("#{@repo_path}/", '')
-            }
-          elsif m2
-            # We may run into renames sometimes... they take the form of
-            # R<numbers>   path1   path2
-            # ala:
-            # R050 foo/bar/baz bing/bang/bong
-            #
-            # I don't know if the number is always there, the man page
-            # doesn't mention them, so I don't require them to be there.
-            #
-            # Anyway, in this case, treat it as if we saw a delete and
-            # an add. We're in a map, so we can't just fake an extra iteration,
-            # so we'll return an array and then flatten it at the end...
-            [
-              {
-                :status => :deleted,
-                :path => m2[1].sub("#{@repo_path}/", '')
-              },
-              {
-                :status => :modified,
-                :path => m2[2].sub("#{@repo_path}/", '')
-              }
-            ]
-          else
-            # We've seen some weird non-reproducible failures here
-            # Report and blow up
-            @logger.error(
-              'Something went wrong. Please please report this output.'
-            )
-            @logger.error('Error on:')
-            @logger.error(line)
-            @logger.error('All files:')
-            @logger.error(s.stdout.lines)
-            exit 1
+        begin
+          parse_status(s.stdout).compact
+        rescue => e
+          # We've seen some weird non-reproducible failures here
+          @logger.error(
+            'Something went wrong. Please please report this output.'
+          )
+          @logger.error(e)
+          s.stdout.lines.each do |line|
+            @logger.error(line.strip)
           end
+          exit(1)
         end
-        # Handle renames, see big comment above
-        changes.flatten
       end
 
       def update
@@ -158,20 +113,92 @@ module BetweenMeals
 
       private
 
-      def diff(start_ref, end_ref)
-        if end_ref
-          @logger.info("Diff between #{start_ref} and #{end_ref}")
-          @repo.
-            diff(start_ref, end_ref)
-        else
-          @logger.info("Diff between #{start_ref} and working dir")
-          @repo.
-            diff_workdir(
-              start_ref,
-              :include_untracked => true,
-              :recurse_untracked_dirs => true
-            )
+      def check_refs(start_ref, end_ref)
+        unless @repo.exists?(start_ref)
+          fail Changeset::ReferenceError
         end
+        unless end_ref.nil?
+          unless @repo.exists?(end_ref)
+            fail Changeset::ReferenceError
+          end
+        end
+      end
+
+      def parse_status(changes)
+        # man git-diff-files
+        # Possible status letters are:
+        #
+        # A: addition of a file
+        # C: copy of a file into a new one
+        # D: deletion of a file
+        # M: modification of the contents or mode of a file
+        # R: renaming of a file
+        # T: change in the type of the file
+        # U: file is unmerged (you must complete the merge before it can
+        #    be committed)
+        # X: "unknown" change type (most probably a bug, please report it)
+
+        changes.lines.map do |line|
+          case line
+          when /^A\s+(\S+)$/
+            # A path
+            {
+              :status => :modified,
+              :path => Regexp.last_match(1)
+            }
+          when /^C(?:\d*)\s+(\S+)\s+(\S+)/
+            # C<numbers> path1 path2
+            {
+              :status => :modified,
+              :path => Regexp.last_match(2)
+            }
+          when /^D\s+(\S+)$/
+            # D path
+            {
+              :status => :deleted,
+              :path => Regexp.last_match(1)
+            }
+          when /^M(?:\d*)\s+(\S+)$/
+            # M<numbers> path
+            {
+              :status => :modified,
+              :path => Regexp.last_match(1)
+            }
+          when /^R(?:\d*)\s+(\S+)\s+(\S+)/
+            # R<numbers> path1 path2
+            [
+              {
+                :status => :deleted,
+                :path => Regexp.last_match(1)
+              },
+              {
+                :status => :modified,
+                :path => Regexp.last_match(2)
+              }
+            ]
+          when /^T\s+(\S+)$/
+            # T path
+            [
+              {
+                :status => :deleted,
+                :path => Regexp.last_match(1)
+              },
+              {
+                :status => :modified,
+                :path => Regexp.last_match(1)
+              }
+            ]
+          else
+            fail 'No match'
+          end
+        end
+          .flatten
+          .map do |x|
+            {
+              :status => x[:status],
+              :path => x[:path].sub("#{@repo_path}/", '')
+            }
+          end
       end
     end
   end
