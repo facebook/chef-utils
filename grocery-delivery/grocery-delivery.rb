@@ -205,7 +205,7 @@ if repo.exists?
   repo.update unless GroceryDelivery::Config.dry_run
 else
   unless GroceryDelivery::Config.repo_url
-    GroceryDeliver::Log.error(
+    GroceryDelivery::Log.error(
       'No repo URL was specified, and no repo is checked out'
     )
     exit(1)
