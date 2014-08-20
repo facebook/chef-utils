@@ -64,20 +64,27 @@ def partial_upload(knife, repo, checkpoint, local_head)
   GroceryDelivery::Log.warn(
     "Determing changes... from #{checkpoint} to #{local_head}"
   )
-  changeset = BetweenMeals::Changeset.new(
-    GroceryDelivery::Log,
-    repo,
-    checkpoint,
-    local_head,
-    {
-      :cookbook_dirs =>
-        GroceryDelivery::Config.cookbook_paths,
-      :role_dir =>
-        GroceryDelivery::Config.role_path,
-      :databag_dir =>
-        GroceryDelivery::Config.databag_path,
-    },
-  )
+
+  begin
+    changeset = BetweenMeals::Changeset.new(
+      GroceryDelivery::Log,
+      repo,
+      checkpoint,
+      local_head,
+      {
+        :cookbook_dirs =>
+          GroceryDelivery::Config.cookbook_paths,
+        :role_dir =>
+          GroceryDelivery::Config.role_path,
+        :databag_dir =>
+          GroceryDelivery::Config.databag_path,
+      },
+    )
+  rescue BetweenMeals::Changeset::ReferenceError
+    GroceryDelivery::Log.error('Repo error, invalid revision, exiting')
+    exit(2)
+  end
+
   deleted_cookbooks = changeset.cookbooks.select { |x| x.status == :deleted }
   added_cookbooks = changeset.cookbooks.select { |x| x.status == :modified }
   deleted_roles = changeset.roles.select { |x| x.status == :deleted }
@@ -153,7 +160,7 @@ def setup_config
     opts.on('-c', '--config-file FILE', 'config file') do |s|
       unless File.exists?(File.expand_path(s))
         GroceryDelivery::Log.error("Config file #{s} not found.")
-        exit 2
+        exit(2)
       end
       options[:config_file] = s
     end
@@ -205,7 +212,7 @@ if repo.exists?
   repo.update unless GroceryDelivery::Config.dry_run
 else
   unless GroceryDelivery::Config.repo_url
-    GroceryDelivery::Log.error(
+    GroceryDeliver::Log.error(
       'No repo URL was specified, and no repo is checked out'
     )
     exit(1)
