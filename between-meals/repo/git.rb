@@ -1,5 +1,4 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
-# rubocop:disable MultilineBlockChain
 
 require 'rugged'
 require 'mixlib/shellout'
@@ -138,6 +137,7 @@ module BetweenMeals
         #    be committed)
         # X: "unknown" change type (most probably a bug, please report it)
 
+        # rubocop:disable MultilineBlockChain
         changes.lines.map do |line|
           case line
           when /^A\s+(\S+)$/
@@ -191,14 +191,13 @@ module BetweenMeals
           else
             fail 'No match'
           end
-        end
-          .flatten
-          .map do |x|
+        end.flatten.map do |x|
             {
               :status => x[:status],
               :path => x[:path].sub("#{@repo_path}/", '')
             }
           end
+        # rubocop:enable MultilineBlockChain
       end
     end
   end
