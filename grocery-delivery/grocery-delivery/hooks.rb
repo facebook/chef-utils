@@ -28,7 +28,7 @@ module GroceryDelivery
     end
 
     def self.get(file)
-      class_eval(File.read(file), __FILE__, __LINE__)
+      class_eval(File.read(file), __FILE__, __LINE__) if File.exists?(file)
     end
   end
 end
