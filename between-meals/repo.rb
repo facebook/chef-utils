@@ -81,5 +81,33 @@ module BetweenMeals
     def files
       fail 'Not implemented'
     end
+
+    def latest_revision
+      fail 'Not implemented'
+    end
+
+    def head
+      fail 'Not implemented'
+    end
+
+    def checkout
+      fail 'Not implemented'
+    end
+
+    def update
+      fail 'Not implemented'
+    end
+
+    def last_author
+      fail 'Not implemented'
+    end
+
+    def last_msg
+      fail 'Not implemented'
+    end
+
+    def last_msg=
+      fail 'Not implemented'
+    end
   end
 end

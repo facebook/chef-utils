@@ -1,5 +1,8 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
-require_relative 'changes'
+require_relative 'changes/change'
+require_relative 'changes/cookbook'
+require_relative 'changes/role'
+require_relative 'changes/databag'
 
 module BetweenMeals
   # Convenience for dealing with changes
@@ -9,6 +12,9 @@ module BetweenMeals
   # Basically, you always want to use BetweenMeals::Changes through this
   # helper class.
   class Changeset
+    class ReferenceError < Exception
+    end
+
     def initialize(logger, repo, start_ref, end_ref, locations)
       @logger = logger
       @repo = repo
