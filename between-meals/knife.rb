@@ -54,7 +54,7 @@ module BetweenMeals
     end
 
     def cookbook_upload_all
-      exec!("knife cookbook upload -a -c #{@config}", @logger)
+      exec!("#{@knife} cookbook upload -a -c #{@config}", @logger)
     end
 
     def cookbook_upload(cookbooks)
