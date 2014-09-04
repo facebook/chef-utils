@@ -39,7 +39,7 @@ check_server() {
   current_config=$(readlink $CONFLINK)
   if [ "$current_config" = $PRODCONF ]; then
     if [ -f "$STAMPFILE" ]; then
-      run_cmd "rm -f $STAMPFILE"
+      rm -f $STAMPFILE
     fi
     return
   fi

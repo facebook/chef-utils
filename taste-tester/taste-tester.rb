@@ -27,7 +27,7 @@ end
 # Command line parsing and param descriptions
 module TasteTester
   verify = 'Verify your changes were actually applied as intended!'.red
-  cmd = TasteTester::Config.command
+  cmd = TasteTester::Config.chef_client_command
   description = <<-EOF
 Welcome to taste-tester!
 
@@ -35,13 +35,13 @@ Usage: taste-tester <mode> [<options>]
 
 TLDR; Most common usage is:
   vi cookbooks/...             # Make your changes and commit locally
-  taste-tester test -s [host]  # Put host in taste-tester mode
-  ssh root@[host]              # Log in to host
-    #{cmd} # Run chef and watch it break
+  taste-tester test -s [host]  # Put host in test mode
+  ssh root@[host]              # Log on host
+  #{format('%-28s', "  #{cmd}")} # Run chef and watch it break
   vi cookbooks/...             # Fix your cookbooks
   taste-tester upload          # Upload the diff
-  ssh root@[host]
-    #{cmd} # Run chef and watch it succeed
+  ssh root@[host]              # Log on host
+  #{format('%-28s', "  #{cmd}")} # Run chef and watch it succeed
   <#{verify}>
   taste-tester untest [host]   # Put host back in production
                                #   (optional - will revert itself after 1 hour)
@@ -168,6 +168,23 @@ MODES:
     end
 
     opts.on(
+      '--chef-port-range PORT1,PORT2', Array,
+      'Port range for chef-zero'
+    ) do |ports|
+      unless ports.count == 2
+        logger.error("Invalid port range: #{ports}")
+        exit 1
+      end
+      options[:chef_port_range] = ports
+    end
+
+    opts.on(
+      '--tunnel-port PORT', 'Port for ssh tunnel'
+    ) do |port|
+      options[:user_tunnel_port] = port
+    end
+
+    opts.on(
       '-l', '--linkonly', 'Only setup the remote server, skip uploading.'
     ) do
       options[:linkonly] = true
@@ -231,6 +248,13 @@ MODES:
       'Server to test/untest/keeptesting.'
     ) do |s|
       options[:servers] = s
+    end
+
+    opts.on(
+      '--user USER', 'Custom username for SSH, defaults to "root".' +
+        ' If custom user is specified, we will use sudo for all commands.'
+    ) do |user|
+      options[:user] = user
     end
 
     opts.on(

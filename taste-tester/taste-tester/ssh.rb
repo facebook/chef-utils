@@ -22,35 +22,39 @@ module TasteTester
     alias_method :<<, :add
 
     def run
-      prepare
-      @status, @output = exec(@cmd, logger)
+      @status, @output = exec(cmd, logger)
     end
 
     def run!
-      prepare
-      @status, @output = exec!(@cmd, logger)
+      @status, @output = exec!(cmd, logger)
     rescue => e
+      # rubocop:disable LineLength
       error = <<-MSG
-SSH returned error while connecting to root@#{@host}
+SSH returned error while connecting to #{TasteTester::Config.user}@#{@host}
 The host might be broken or your SSH access is not working properly
-Try doing 'ssh -v root@#{@host}' and come back once that works
+Try doing 'ssh -v #{TasteTester::Config.user}@#{@host}' and come back once that works
 MSG
+      # rubocop:enable LineLength
       error.lines.each { |x| logger.error x.strip }
       logger.error(e.message)
     end
 
     private
 
-    def prepare
+    def cmd
       @cmds.each do |cmd|
         logger.info("Will run: '#{cmd}' on #{@host}")
       end
       cmds = @cmds.join(' && ')
-      @cmd = "ssh -T -o BatchMode=yes -o ConnectTimeout=#{@timeout} "
-      if @tunnel
-        @cmd += ' -f -R 4001:localhost:4000 '
+      cmd = "ssh -T -o BatchMode=yes -o ConnectTimeout=#{@timeout} "
+      cmd += "#{TasteTester::Config.user}@#{@host} "
+      if TasteTester::Config.user != 'root'
+        cc = Base64.encode64(cmds).gsub(/\n/, '')
+        cmd += "\"echo '#{cc}' | base64 --decode | sudo bash -x\""
+      else
+        cmd += "\'#{cmds}\'"
       end
-      @cmd += "root@#{@host} \"#{cmds}\""
+      cmd
     end
   end
 end

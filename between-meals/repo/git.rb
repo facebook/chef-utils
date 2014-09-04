@@ -192,11 +192,11 @@ module BetweenMeals
             fail 'No match'
           end
         end.flatten.map do |x|
-            {
-              :status => x[:status],
-              :path => x[:path].sub("#{@repo_path}/", '')
-            }
-          end
+          {
+            :status => x[:status],
+            :path => x[:path].sub("#{@repo_path}/", '')
+          }
+        end
         # rubocop:enable MultilineBlockChain
       end
     end
