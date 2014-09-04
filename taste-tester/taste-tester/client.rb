@@ -72,7 +72,12 @@ module TasteTester
                                         @server.latest_uploaded_ref,
                                         @repo.head_rev)
         end
-        time(logger) { partial }
+        begin
+          time(logger) { partial }
+        rescue BetweenMeals::Changeset::ReferenceError
+          logger.warn('Something changed with your repo, doing full upload')
+          time(logger) { full }
+        end
         unless TasteTester::Config.skip_post_upload_hook
           TasteTester::Hooks.post_upload(TasteTester::Config.dryrun,
                                          @repo,

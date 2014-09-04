@@ -43,9 +43,9 @@ module TasteTester
         end
       else
         proc do |severity, datetime, progname, msg|
-          msg.prepend("#{severity}: ") unless severity == 'WARN'
+          msg.to_s.prepend("#{severity}: ") unless severity == 'WARN'
           if severity == 'ERROR'
-            msg = msg.red
+            msg = msg.to_s.red
           end
           "#{msg}\n"
         end

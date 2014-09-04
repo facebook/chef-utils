@@ -1,6 +1,8 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 
 require 'colorize'
+require 'socket'
+require 'timeout'
 
 module BetweenMeals
   # A set of simple utility functions used throughout BetweenMeals
@@ -50,6 +52,23 @@ module BetweenMeals
         info("STDERR: #{line.strip.red}")
       end
       return c
+    end
+
+    def port_open?(port)
+      begin
+        Timeout.timeout(1) do
+          begin
+            s = TCPSocket.new('localhost', port)
+            s.close
+            return true
+          rescue Errno::ECONNREFUSED, Errno::EHOSTUNREACH
+            return false
+          end
+        end
+      rescue Timeout::Error
+        return false
+      end
+      return false
     end
   end
 end

@@ -1,5 +1,7 @@
 # vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
 
+require 'logger'
+
 module TasteTester
   # Null logger
   module Logging
@@ -11,7 +13,3 @@ module TasteTester
     end
   end
 end
-
-require_relative '../taste-tester/util'
-require_relative '../taste-tester/config'
-require_relative '../taste-tester/taste-tester'
