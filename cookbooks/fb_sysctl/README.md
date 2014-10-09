@@ -16,9 +16,10 @@ Anywhere, in any cookbook, you can set a sysctl in a recipe as follows:
 
     node.default['fb']['fb_sysctl'][$SYSCTL] = $VALUE
 
-For example:
+For example, vm.swappiness can be set to 1 to tell the kernel to only
+application data if it is necessary.
 
-    node.default['fb']['fb_sysctl']['vm.swappiness'] = 70
+    node.default['fb']['fb_sysctl']['vm.swappiness'] = 1
 
 License
 -------
