@@ -30,14 +30,13 @@
 if File.exists?('/opt/chef-server/bin/chef-server-ctl')
   embedded_path = '/opt/chef-server/embedded/bin'
   ctl_bin = '/opt/chef-server/bin/chef-server-ctl'
-elsif File.exists?('/opt/opscode/bin/private-chef-ctl')
-  embedded_path = '/opt/opscode/embedded/bin'
-  ctl_bin = '/opt/opscode/bin/private-chef-ctl'
 elsif File.exists?('/opt/opscode/bin/chef-server-ctl')
   chef_server_12 = true
   embedded_path = '/opt/opscode/embedded/bin'
   ctl_bin = '/opt/opscode/bin/chef-server-ctl'
-
+elsif File.exists?('/opt/opscode/bin/private-chef-ctl')
+  embedded_path = '/opt/opscode/embedded/bin'
+  ctl_bin = '/opt/opscode/bin/private-chef-ctl'
 else
   warn 'ERROR: Failed to determine chef server type, exiting'
   warn '       (open-source or privatechef)'
@@ -251,12 +250,16 @@ def get_server_status
   return status
 end
 
-def get_folsom_metrics
+def get_folsom_metrics(chef_server_12)
   result = {}
   if chef_server_12
-    s = Mixlib::ShellOut.new('./folsom-stats')
-    obj = Yajl::Parser.new.parse(s.run_command.stdout)
-    obj.each{|val| result.merge! val }
+    _safe_get(__method__) do
+      if File.exists? "./folsom-stats"
+        s = Mixlib::ShellOut.new('./folsom-stats')
+        obj = Yajl::Parser.new.parse(s.run_command.stdout)
+        obj.each{|val| result.merge! val }
+      end
+    end
   end
   result
 end
@@ -270,7 +273,7 @@ output.merge!(get_postgresql_stats(embedded_path))
 output.merge!(get_authz_stats(services))
 output.merge!(get_redis_stats(services))
 output.merge!(get_server_status)
-output.merge!(get_folsom_metrics)
+output.merge!(get_folsom_metrics(chef_server_12))
 
 # Generate output, pretty if necessary
 if %w{info debug}.include?(Chef::Config[:log_level].to_s)
