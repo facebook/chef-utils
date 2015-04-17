@@ -17,6 +17,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+Chef::Resource::Execute.send(:include, FB::FBSysctl)
+
 whyrun_safe_ruby_block 'sysctl sanity checks' do
   block do
     node['fb']['fb_sysctl'].to_hash.each do |sysctl, _val|
@@ -57,6 +59,6 @@ end
 
 # Safety check in case we missed a notification above
 execute 'reread-sysctl' do
-  not_if { FB::FBSysctl.sysctl_in_sync? }
+  not_if { sysctl_in_sync? }
   command '/sbin/sysctl -p'
 end
