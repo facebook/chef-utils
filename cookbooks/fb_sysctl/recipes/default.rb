@@ -57,6 +57,6 @@ end
 
 # Safety check in case we missed a notification above
 execute 'reread-sysctl' do
-  not_if { FB::FBSysctl.sysctl_in_sync? }
+  not_if { FB::FBSysctl.sysctl_in_sync?(node) }
   command '/sbin/sysctl -p'
 end
