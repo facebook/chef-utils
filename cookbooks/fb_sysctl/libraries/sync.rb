@@ -17,7 +17,7 @@
 
 module FB
   module FBSysctl
-    def sysctl_in_sync?
+    def self.sysctl_in_sync?(node)
       # Get current settings
       s = Mixlib::ShellOut.new('/sbin/sysctl -a')
       s.run_command
