@@ -27,7 +27,7 @@ when 'mac_os_x'
   svc_name = 'com.vix.cron'
 when 'rhel'
   package_name = 'vixie-cron'
-  if node['platform'] == 'amazon' || node['platform_version'] >= 6
+  if node['platform'] == 'amazon' || node['platform_version'].to_i >= 6
     package_name = 'cronie'
   end
   svc_name = 'crond'
