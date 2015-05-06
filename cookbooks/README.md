@@ -7,6 +7,7 @@ them that don't work for everyone.
 We hope that they provide a useful example for the way in which we write
 data-driven cookbooks.
 
-NOTE: Because Facebook still uses Chef 10 clients, READMEs refer to specifying
-attributes in recipe files. In Chef 11 it is preferrable to do so in an
-attributes file provided that cookbook is later in the runlist.
+NOTE: Because ordering of attribute-file loading is highly variable on many
+factors, our model specifically assumes a cookbook attribute file only touches
+it's own data (defaults for it's exported API), and that all users of that API
+will touch that data in recipes.
