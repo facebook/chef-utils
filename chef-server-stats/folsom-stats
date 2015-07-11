@@ -1,0 +1,40 @@
+#!/usr/bin/env escript
+
+-define(ERCHEF, 'erchef@127.0.0.1').
+-define(ERCHEF_COOKIE, 'erchef').
+-define(SELF, 'chef-stats@127.0.0.1').
+
+fetch_metric({MetricKey, [MetricType = {type, histogram} ]}) ->
+    {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_histogram_statistics, [MetricKey]), MetricType};
+fetch_metric({MetricKey, [MetricType]}) ->
+    {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value,[MetricKey]), MetricType}.
+
+normalize_data([{_,_} | _] = Vals) ->
+    {lists:foldl(fun({Val1, Val2}, AccIn) -> [{normalize_data(Val1), normalize_data(Val2)} | AccIn] end, [], Vals)};
+normalize_data(Val) ->
+    [Result] = io_lib:format("~p", [Val]),
+    list_to_binary(Result).
+
+process_metric({MetricKey, MetricData, MetricType}) ->
+    NormalizedData = normalize_data([MetricType | MetricData]),
+    {[{MetricKey, NormalizedData}]}.
+
+process_metrics(AccIn, []) ->
+    lists:reverse(AccIn);
+process_metrics(AccIn, [Metric | Metrics]) ->
+    MetricData = fetch_metric(Metric),
+    process_metrics([ process_metric(MetricData) | AccIn], Metrics).
+
+process_metrics(Metrics) ->
+    process_metrics([], Metrics).
+
+init_network() ->
+    net_kernel:start([?SELF, longnames]),
+    erlang:set_cookie(node(), ?ERCHEF_COOKIE),
+    pong = net_adm:ping(?ERCHEF).
+
+main(_Args) ->
+    init_network(),
+    MetricsInfo = rpc:call(?ERCHEF, folsom_metrics, get_metrics_info, []),
+    ProcessedMetrics = process_metrics(MetricsInfo),
+    io:format("~s~n", [rpc:call(?ERCHEF, jiffy, encode, [ProcessedMetrics])]).
