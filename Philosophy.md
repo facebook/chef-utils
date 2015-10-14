@@ -45,7 +45,7 @@ understand.
 ## Manage systems idempotently, not records
 
 Rather than manage individual records or entries (e.g. a cronjob, a sysctl),
-manage an entire set or sysetm of records as one idempotent entity.
+manage an entire set or system of records as one idempotent entity.
 
 To continue the example above, use the crons hash to generate
 /etc/cron.d/all_crons. In this way all crons are created by the system as one
