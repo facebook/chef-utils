@@ -27,6 +27,9 @@
 # Usage: knife exec chef-server-stats [-V]
 
 # Determine if we're running open source Chef server or private chef
+
+require 'yajl'
+
 if File.exists?('/opt/chef-server/bin/chef-server-ctl')
   embedded_path = '/opt/chef-server/embedded/bin'
   ctl_bin = '/opt/chef-server/bin/chef-server-ctl'
