@@ -28,8 +28,6 @@
 
 # Determine if we're running open source Chef server or private chef
 
-require 'yajl'
-
 if File.exists?('/opt/chef-server/bin/chef-server-ctl')
   embedded_path = '/opt/chef-server/embedded/bin'
   ctl_bin = '/opt/chef-server/bin/chef-server-ctl'
@@ -259,7 +257,7 @@ def get_folsom_metrics(chef_server_12)
     _safe_get(__method__) do
       if File.exists? "./folsom-stats"
         s = Mixlib::ShellOut.new('./folsom-stats')
-        obj = Yajl::Parser.new.parse(s.run_command.stdout)
+        obj = Chef::JSONCompat.from_json(s.run_command.stdout)
         obj.each{|val| result.merge! val }
       end
     end
