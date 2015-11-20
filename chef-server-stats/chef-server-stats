@@ -255,8 +255,9 @@ def get_folsom_metrics(chef_server_12)
   result = {}
   if chef_server_12
     _safe_get(__method__) do
-      if File.exists? "./folsom-stats"
-        s = Mixlib::ShellOut.new('./folsom-stats')
+      folsom_bin = "#{File.dirname(__FILE__)}/folsom-stats"
+      if File.exists?(folsom_bin)
+        s = Mixlib::ShellOut.new(folsom_bin)
         obj = Chef::JSONCompat.from_json(s.run_command.stdout)
         obj.each do |blob|
           blob.each do |svc, data|
@@ -264,7 +265,7 @@ def get_folsom_metrics(chef_server_12)
             if data['type'] == 'histogram'
               # we skip this for now.
             elsif data['type'] == 'meter'
-              result[svc] = data['count']
+              result["chef.server.#{svc}"] = data['count']
               next
             end
           end
