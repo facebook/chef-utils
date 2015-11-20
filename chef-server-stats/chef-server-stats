@@ -258,7 +258,17 @@ def get_folsom_metrics(chef_server_12)
       if File.exists? "./folsom-stats"
         s = Mixlib::ShellOut.new('./folsom-stats')
         obj = Chef::JSONCompat.from_json(s.run_command.stdout)
-        obj.each{|val| result.merge! val }
+        obj.each do |blob|
+          blob.each do |svc, data|
+            value = nil
+            if data['type'] == 'histogram'
+              # we skip this for now.
+            elsif data['type'] == 'meter'
+              result[svc] = data['count']
+              next
+            end
+          end
+        end
       end
     end
   end
