@@ -26,8 +26,11 @@
 #
 # Usage: knife exec chef-server-stats [-V]
 
-# Determine if we're running open source Chef server or private chef
+# rabbit and folsom and other things require a HOME, but often times monitoring
+# systems run things with no environment.
+ENV['HOME'] = '/root' unless ENV['HOME']
 
+# Determine if we're running open source Chef server or private chef
 if File.exists?('/opt/chef-server/bin/chef-server-ctl')
   embedded_path = '/opt/chef-server/embedded/bin'
   ctl_bin = '/opt/chef-server/bin/chef-server-ctl'
@@ -257,8 +260,7 @@ def get_folsom_metrics(chef_server_12)
     _safe_get(__method__) do
       folsom_bin = "#{File.dirname(__FILE__)}/folsom-stats"
       if File.exists?(folsom_bin)
-        # This requires HOME be set for some reason...
-        s = Mixlib::ShellOut.new(folsom_bin, :env => {'HOME' => '/root'})
+        s = Mixlib::ShellOut.new(folsom_bin)
         obj = Chef::JSONCompat.from_json(s.run_command.stdout)
         obj.each do |blob|
           blob.each do |svc, data|
