@@ -257,7 +257,8 @@ def get_folsom_metrics(chef_server_12)
     _safe_get(__method__) do
       folsom_bin = "#{File.dirname(__FILE__)}/folsom-stats"
       if File.exists?(folsom_bin)
-        s = Mixlib::ShellOut.new(folsom_bin)
+        # This requires HOME be set for some reason...
+        s = Mixlib::ShellOut.new(folsom_bin, :env => {'HOME' => '/root'})
         obj = Chef::JSONCompat.from_json(s.run_command.stdout)
         obj.each do |blob|
           blob.each do |svc, data|
