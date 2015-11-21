@@ -7,7 +7,7 @@
 fetch_metric({MetricKey, [MetricType = {type, histogram} ]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_histogram_statistics, [MetricKey]), MetricType};
 fetch_metric({MetricKey, [MetricType = {type, histogram}, _]}) ->
-      {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value, [MetricKey]), MetricType};
+    {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value, [MetricKey]), MetricType};
 fetch_metric({MetricKey, [MetricType]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value,[MetricKey]), MetricType};
 fetch_metric({MetricKey, [MetricType, _]}) ->
