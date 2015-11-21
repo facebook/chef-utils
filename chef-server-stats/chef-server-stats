@@ -265,8 +265,13 @@ def get_folsom_metrics(chef_server_12)
         obj.each do |blob|
           blob.each do |svc, data|
             value = nil
-            result["chef.server.#{svc}"] = data['count']
-            next
+            if data['type'] == 'histogram'
+              result["chef.server.#{svc}"] = data['current']
+              next
+            elsif data['type'] == 'meter'
+              result["chef.server.#{svc}"] = data['count']
+              next
+            end
           end
         end
       end
