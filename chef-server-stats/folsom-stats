@@ -14,8 +14,8 @@ fetch_metric({MetricKey, [MetricType, _]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value, [MetricKey]), MetricType}.
 
 normalize_data([{type,histogram}, HistogramData = _,_ | _]) ->
-      HistoResult = integer_to_binary(HistogramData),
-    {[{<<"current">>,HistoResult}]};
+    HistoResult = integer_to_binary(HistogramData),
+    {[{<<"current">>,HistoResult},{<<"type">>,<<"histogram">>}]};
 normalize_data([{_,_} | _] = Vals) ->
     {lists:foldl(fun({Val1, Val2}, AccIn) -> [{normalize_data(Val1), normalize_data(Val2)} | AccIn] end, [], Vals)};
 normalize_data(Val) ->
