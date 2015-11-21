@@ -7,12 +7,15 @@
 fetch_metric({MetricKey, [MetricType = {type, histogram} ]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_histogram_statistics, [MetricKey]), MetricType};
 fetch_metric({MetricKey, [MetricType = {type, histogram}, _]}) ->
-    {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_histogram_statistics, [MetricKey]), MetricType};
+      {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value, [MetricKey]), MetricType};
 fetch_metric({MetricKey, [MetricType]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value,[MetricKey]), MetricType};
 fetch_metric({MetricKey, [MetricType, _]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value, [MetricKey]), MetricType}.
 
+normalize_data([{type,histogram}, HistogramData = _,_ | _]) ->
+      HistoResult = integer_to_binary(HistogramData),
+    {[{<<"current">>,HistoResult}]};
 normalize_data([{_,_} | _] = Vals) ->
     {lists:foldl(fun({Val1, Val2}, AccIn) -> [{normalize_data(Val1), normalize_data(Val2)} | AccIn] end, [], Vals)};
 normalize_data(Val) ->
