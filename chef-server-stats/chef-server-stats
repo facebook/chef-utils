@@ -267,6 +267,8 @@ def get_folsom_metrics(chef_server_12)
             value = nil
             if data['type'] == 'histogram'
               result["chef.server.#{svc}"] = data['arithmetic_mean']
+              result["chef.server.#{svc}.min"] = data['min']
+              result["chef.server.#{svc}.max"] = data['max']
               next
             elsif data['type'] == 'meter'
               result["chef.server.#{svc}"] = data['count']
