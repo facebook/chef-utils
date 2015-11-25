@@ -13,9 +13,9 @@ fetch_metric({MetricKey, [MetricType]}) ->
 fetch_metric({MetricKey, [MetricType, _]}) ->
     {MetricKey, rpc:call(?ERCHEF, folsom_metrics,get_metric_value, [MetricKey]), MetricType}.
 
-normalize_data([{type,counter}, _]) ->
-%%No support for counters yet
-    {[{<<"current">>,<<"Unsupported">>},{<<"type">>,<<"counter">>}]};
+normalize_data([{type,counter}|CounterData = _]) ->
+    Result = integer_to_binary(CounterData),
+    {[{<<"current">>,Result},{<<"type">>,<<"counter">>}]};
 normalize_data([{_,_} | _] = Vals) ->
     {lists:foldl(fun({Val1, Val2}, AccIn) -> [{normalize_data(Val1), normalize_data(Val2)} | AccIn] end, [], Vals)};
 normalize_data(Val) ->
