@@ -18,6 +18,9 @@ We try to always keep these basic scaling building blocks in mind:
 
 ## Data-driven configuration
 
+Full examples are available in [Facebook Chef
+Cookbooks](https://github.com/facebook/chef-cookbooks)
+
 Express your configuration as data as often as possible. For example, if you
 express crons like:
 
@@ -77,7 +80,7 @@ relative to that cookbook.
 
 We start by building default hash of sysctls in `attributes/default.rb`
 
-    default['fb']['fb_sysctl'] = {
+    default['fb_sysctl'] = {
       ...
     }
 
@@ -86,7 +89,7 @@ We start by building default hash of sysctls in `attributes/default.rb`
         ...
 
       }.each do |sysctl, val|
-        default['fb']['fb_sysctl'][sysctl] = val
+        default['fb_sysctl'][sysctl] = val
       end
     end
 
@@ -109,21 +112,21 @@ Next we define a template for /etc/sysctl.conf in `recpies/default.rb` like so:
 Then we write that template, `templates/default/sysctl.conf.erb`:
 
     # This file is managed by Chef, do not modify directly.
-    <% node['fb']['fb_sysctl'].keys.sort.each do |sysctl| %>
-    <%=  sysctl %> = <% node['fb']['fb_sysctl'][sysctl] %>
+    <% node['fb_sysctl'].keys.sort.each do |sysctl| %>
+    <%=  sysctl %> = <% node['fb_sysctl'][sysctl] %>
     <% end %>
 
 Now we've defined defaults and an API. Now the DBAs, in the fb_mysql::server
 recipe, for example, can do:
 
-    node.default['fb']['fb_sysctl']['shm.max'] = ...
+    node.default['fb_sysctl']['shm.max'] = ...
 
 ## Example 2: cron
 
 This works similarly, but there's a bit more work to do... we have a cookbook
 entitled fb_cron which defines some defaults in `attributes/default.rb`:
 
-    default['fb']['fb_cron']['jobs'] = {
+    default['fb_cron']['jobs'] = {
       'logrotate' => {
         'time' => ...
         'command' => '/usr/local/sbin/logrotate -d /etc/fb.logrotate',
@@ -142,7 +145,7 @@ These are crons that should be on all boxes. Then in `recipes/default.rb`, we do
 Now, in the template, we do some more intersting work. This is
 `templates/defaults/fb_crontab.erb`:
 
-    <% node['fb']['fb_crontab']['jobs'].to_hash.each do |name, job| %>
+    <% node['fb_crontab']['jobs'].to_hash.each do |name, job| %>
     <%   # fill in defaults %>
     <%   job['user'] = 'root' unless job['user'] %>
     # <%=  name %>
@@ -158,7 +161,7 @@ Now, in the template, we do some more intersting work. This is
 
 And again, now in other cookbooks people can add crons easily:
 
-    node.default['fb']['fb_cron']['jobs']['mynewthing'] = {
+    node.default['fb_cron']['jobs']['mynewthing'] = {
       ...
     }
 
