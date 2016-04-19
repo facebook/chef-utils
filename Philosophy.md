@@ -175,7 +175,7 @@ be useful to others.
 We have a chef server (or actually, set of servers) in each one of our clusters.
 Each acts independently but must have its cookbooks and roles up-to-date. In
 order to accomplish this we wrote Grocery Delivery which you can find at
-http://github.com/facebook/chef-utils
+https://github.com/facebook/grocery-delivery
 
 Grocery Delivery runs on each Chef server (or Chef Backend if you use 'tier' or
 'ha' mode in Enterprise Chef). It keeps a git or svn checkout of a repo of
