@@ -289,9 +289,9 @@ def get_pooler_metrics(chef_server_12)
   result = {}
   if chef_server_12
     _safe_get(__method__) do
-      folsom_bin = "#{File.dirname(__FILE__)}/real-time-pool-stats"
-      if File.exists?(folsom_bin)
-        s = Mixlib::ShellOut.new(folsom_bin)
+      pooler_bin = "#{File.dirname(__FILE__)}/real-time-pool-stats"
+      if File.exists?(pooler_bin)
+        s = Mixlib::ShellOut.new(pooler_bin)
         obj = Chef::JSONCompat.from_json(s.run_command.stdout)
         obj.each do |svc, data|
           data.each do |pool, values|
