@@ -51,7 +51,7 @@ end
 # server frontend in the tiered model).
 cmd = "#{ctl_bin} service-list"
 s = Mixlib::ShellOut.new(cmd).run_command
-if s.exitstatus == 0
+if s.exitstatus.zero?
   services = s.stdout.split("\n")
 else
   warn 'ERROR: Failed to get service list, exiting'
@@ -107,7 +107,7 @@ def get_couchdb_stats(services)
       'chef.server.couch_db_writes' =>
         couch_stats['couchdb']['database_writes']['current'] || 0,
       'chef.server.couch_avg_request_time' =>
-        couch_stats['couchdb']['request_time']['mean'] || 0
+        couch_stats['couchdb']['request_time']['mean'] || 0,
     }
     return stats
   end
@@ -122,7 +122,7 @@ def get_rabbitmq_stats(embedded_path)
     cmd = "PATH=\"#{embedded_path}/:$PATH\" #{rabbit_bin}" +
           ' list_queues -p /chef messages_ready'
     s = Mixlib::ShellOut.new(cmd).run_command
-    if s.exitstatus == 0
+    if s.exitstatus.zero?
       lines = s.stdout.split(/\n/)
       # Values for all queues are listed on separate lines so add them up
       sum = 0
@@ -164,7 +164,7 @@ def get_postgresql_stats(embedded_path)
           "opscode-pgsql -d opscode_chef -c '#{q}'\""
 
     s = Mixlib::ShellOut.new(cmd).run_command
-    if s.exitstatus == 0
+    if s.exitstatus.zero?
       s.stdout.split('|').each do |value|
         stats["chef.server.postgresql_#{columns.shift}"] = value.chomp
       end
@@ -176,7 +176,7 @@ def get_postgresql_stats(embedded_path)
           "opscode-pgsql -d opscode_chef -c \\\"#{q}\\\"\""
 
     s = Mixlib::ShellOut.new(cmd).run_command
-    if s.exitstatus == 0
+    if s.exitstatus.zero?
       stats['chef.server.postgresql_connection_count'] = s.stdout.chomp.to_i
     end
 
@@ -264,7 +264,6 @@ def get_folsom_metrics(chef_server_12)
         obj = Chef::JSONCompat.from_json(s.run_command.stdout)
         obj.each do |blob|
           blob.each do |svc, data|
-            value = nil
             if data['type'] == 'histogram'
               result["chef.server.#{svc}.mean"] = data['arithmetic_mean']
               result["chef.server.#{svc}.min"] = data['min']
