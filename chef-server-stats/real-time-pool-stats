@@ -6,7 +6,7 @@
 -define(A2B(X), erlang:atom_to_binary(X, utf8)).
 
 check_metrics() ->
-    Pools = [sqerl, oc_chef_authz_http, chef_index_http, chef_depsolver, rabbitmq_management_service],
+    Pools = [sqerl, oc_chef_authz_http, chef_index_http, chef_depsolver],
     Metrics = get_metrics(Pools),
     rpc:call(?ERCHEF,chef_json,encode,[{[{<<"pooler_metrics">>,{Metrics}}]}]).
 
