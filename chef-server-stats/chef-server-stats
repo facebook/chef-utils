@@ -285,6 +285,27 @@ def get_folsom_metrics(chef_server_12)
   result
 end
 
+def get_pooler_metrics(chef_server_12)
+  result = {}
+  if chef_server_12
+    _safe_get(__method__) do
+      pooler_bin = "#{File.dirname(__FILE__)}/real-time-pool-stats"
+      if File.exists?(pooler_bin)
+        s = Mixlib::ShellOut.new(pooler_bin)
+        obj = Chef::JSONCompat.from_json(s.run_command.stdout)
+        obj.each do |svc, data|
+          data.each do |pool, values|
+            values.each do |key, value|
+              result["chef.server.#{svc}.#{pool}.#{key}"] = value
+            end
+          end
+        end
+      end
+    end
+  end
+  result
+end
+
 # Get all the stats!
 output = {}
 output.merge!(get_api_counts(services))
@@ -295,6 +316,7 @@ output.merge!(get_authz_stats(services))
 output.merge!(get_redis_stats(services))
 output.merge!(get_server_status)
 output.merge!(get_folsom_metrics(chef_server_12))
+output.merge!(get_pooler_metrics(chef_server_12))
 
 # Generate output, pretty if necessary
 if %w{info debug}.include?(Chef::Config[:log_level].to_s)
