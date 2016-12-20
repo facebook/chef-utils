@@ -24,7 +24,7 @@ Cookbooks](https://github.com/facebook/chef-cookbooks)
 Express your configuration as data as often as possible. For example, if you
 express crons like:
 
-    crons = { 
+    crons = {
       'backups' => {
          'timespec' => '12 01 * * *',
          'command' => '/usr/local/sbin/backups',
@@ -167,7 +167,7 @@ And again, now in other cookbooks people can add crons easily:
 
 # Other Considerations
 
-We have a handful of considerations to accomodate our size which may or may not
+We have a handful of considerations to accommodate our size which may or may not
 be useful to others.
 
 ## Keeping multiple chef servers in sync
@@ -195,7 +195,7 @@ providing tracking for all changes.
 ## Trimming node.save()s
 
 Due to the size of our clusters and the frequency with which we run Chef, saving
-the node object back to the server isn't feasable.
+the node object back to the server isn't feasible.
 
 Further, due to the way we manage multiple clusters and the fact that we have
 pre-existing inventory management systems, saving node data to the chef server
@@ -234,4 +234,3 @@ systems.
 
 You can see our ChefConf keynote for other examples, graphs, and more details on
 YouTube.
-
