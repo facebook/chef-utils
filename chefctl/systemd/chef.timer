@@ -1,0 +1,15 @@
+# This timer starts chef.service
+# If you rename it, make sure you also rename the service.
+
+[Unit]
+Description=Run chef every 15 minutes.
+After=network.target time-sync.target network-online.target
+
+[Timer]
+# Run this timer every 15 minutes.
+OnCalendar=*:0/15:0
+# ... accurate to 1 second.
+AccuracySec=1s
+
+[Install]
+WantedBy=multi-user.target
