@@ -1,0 +1,17 @@
+# This service is started by chef.timer
+# If you rename it, make sure you also rename the timer.
+
+[Unit]
+Description=Run Chef periodically
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/chefctl.rb -q
+# Chef runs are normally pretty fast, but if you're running chef for the first
+# time on a machine, it can take a while. 1d 6h is much longer than even these
+# chef runs should take, so it's a generous upper bound.
+TimeoutStartSec=1d 6h
+# Prevent lingering processes in the chef cgroup by killing them 15 minutes
+# after chef finishes, or is told to stop:
+TimeoutStopSec=15m
