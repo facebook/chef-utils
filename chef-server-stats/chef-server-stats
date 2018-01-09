@@ -120,7 +120,7 @@ def get_rabbitmq_stats(embedded_path)
 
   _safe_get(__method__) do
     cmd = "PATH=\"#{embedded_path}/:$PATH\" #{rabbit_bin}" +
-          ' list_queues -p /chef messages_ready'
+          ' list_queues -p /chef -n rabbit@localhost messages_ready'
     s = Mixlib::ShellOut.new(cmd).run_command
     if s.exitstatus.zero?
       lines = s.stdout.split(/\n/)
