@@ -8,8 +8,13 @@ require 'open3'
 require 'optparse'
 require 'socket'
 require 'mixlib/config'
+require 'mixlib/log'
 require 'mixlib/shellout'
 require 'rubygems'
+
+# We use comments on end blocks to tell what that end statement is ending
+# for sanity sake. This rubocop rule doesn't like this style.
+# rubocop:disable Style/CommentedKeyword
 
 def quit(message, exitcode = 1)
   Chefctl.logger.error(message)
@@ -23,9 +28,15 @@ module Chefctl
   # Buffer size to use when reading chef output from stdout.
   BUFFER_SIZE = 1024
 
+  # This is the exit code for chefctl when chef-client fails.
+  # This is used downstream to determine between chef-client and chefctl
+  # failures. (i.e. anything that isn't this number is a chefctl failure)
+  CHEFCLIENT_FAILURE = 4 # chosen by fair dice roll.
+
   @program_name = File.basename($PROGRAM_NAME)
   @logger = nil
   @lib = nil
+  @log_file = nil
 
   def self.program_name=(v)
     @program_name = File.basename(v)
@@ -36,17 +47,45 @@ module Chefctl
     @program_name
   end
 
-  def self.logger
-    unless @logger
-      @logger = Logger.new(STDOUT)
-      @logger.sev_threshold = Logger::INFO
-      @logger.formatter = proc do |severity, datetime, progname, msg|
+  class InternalLogger
+    extend Mixlib::Log
+  end
+
+  def self.init_logger(fout = nil)
+    # !!assign to the class, not an instance of the class!!
+    @logger = InternalLogger
+    # default behavior is STDERR with level :warn
+    if fout
+      @log_file = File.open(fout, 'w')
+      @logger.loggers << Logger.new(@log_file)
+    end
+    @logger.loggers.each do |log|
+      log.formatter = proc do |severity, datetime, progname, msg|
         "[#{datetime}] #{severity} #{progname}: #{msg}\n"
       end
-
-      @logger.progname = program_name
+      log.progname = program_name
     end
+    @logger.level = :info
+  end
+
+  def self.log_file
+    @log_file
+  end
+
+  def self.flush_logger
+    # flush the file backing our logger object
+    @log_file.flush if @log_file
+  end
+
+  def self.logger
+    init_logger unless @logger
     @logger
+  end
+
+  def self.close_logger
+    @log_file.close
+    @log_file = nil
+    @logger = nil
   end
 
   def self.lib
@@ -58,7 +97,6 @@ module Chefctl
       else
         @lib = Chefctl::Lib::Linux.new
       end
-      Chefctl.logger.debug("Using chefctl platform module: #{@lib.class}")
     end
     @lib
   end
@@ -72,7 +110,9 @@ module Chefctl
     # Whether or not chefctl should provide verbose output.
     verbose false
 
-    # The chef-client process to use.
+    # The chef-client process to use. Could be string or array of strings
+    # to specify the ruby interpreter, which is needed for Windows if
+    # windows_subshell is false.
     chef_client '/opt/chef/bin/chef-client'
 
     # Whether or not chef-client should provide debug output.
@@ -119,6 +159,7 @@ module Chefctl
     plugin_path '/etc/chef/chefctl_hooks.rb'
 
     # The default PATH environment variable to use for chef-client.
+    # Should be unset for Windows if `windows_subshell` is set to false
     path %w{
       /usr/sbin
       /usr/bin
@@ -126,6 +167,24 @@ module Chefctl
 
     # Whether or not to symlink output files for chef.cur.out and chef.last.out
     symlink_output true
+
+    # Environment variables to pass-through from the environment where chefctl
+    # is invoked. Environment variables that aren't listed here are removed.
+    # Note that PATH and HOSTNAME are set by `path` and `hostname` in Config
+    # and Plugin, respectively, so including them here does nothing.
+    passthrough_env %w{
+      USER
+      LOGNAME
+      PWD
+      HOME
+      SUDO_USER
+      XAR_MOUNT_SEED
+    }
+
+    # TODO(yottatsa): this option is deprecated
+    # Process.spawn works fine for all platforms. This option meant to preserve
+    # old Windows behaviour, lack of logging now, and shouldn't be used.
+    windows_subshell false
   end
 
   # Chefctl plugins are used to define custom behavior for chefctl.
@@ -264,6 +323,15 @@ module Chefctl
 
   # Platform-independent helper functions
   module Lib
+    # Returns chef executable name to be used for looking in process list
+    def chef_client_binary
+      if Chefctl::Config.chef_client.is_a?(Array)
+        return Chefctl::Config.chef_client[0]
+      else
+        return Chefctl::Config.chef_client
+      end
+    end
+
     # waits for currently running chef processes to exit.
     # If there are running chefctl processes but no chef-client processes, the
     # chefctl processes are killed so this process can run.
@@ -273,7 +341,7 @@ module Chefctl
       return if chefctl_procs.empty?
       return if logfile && !File.exists?(logfile)
 
-      client_name = File.basename(Chefctl::Config.chef_client)
+      client_name = File.basename(chef_client_binary)
 
       # each chefctl instance can show up as 1-3 processes. so best case, we'll
       #
@@ -310,7 +378,7 @@ module Chefctl
 
     # Returns a standard formatted timestamp of the current time.
     def get_timestamp
-      DateTime.now.strftime('%Y%m%d.%H%M.%s')
+      Time.now.strftime('%Y%m%d.%H%M.%s')
     end
 
     # Sets the mtime of a file.
@@ -330,7 +398,6 @@ module Chefctl
     # to the defaults.
     def load_config(config_file, cli_options = {})
       validate_options(cli_options)
-      Chefctl.logger.debug("Loading config at: #{config_file}")
       filename = File.expand_path(config_file)
       if File.exists?(filename)
         Chefctl::Config.from_file(filename)
@@ -359,49 +426,125 @@ module Chefctl
         ps.stdout
       end
 
+      # Returns a list of processes whos commands match the given command.
+      # `command` should be a Regexp or String.
+      # `blacklist` should be an Array of Regexp.
+      # If blacklist is provided, commands that match any of the entries are
+      # not included in the output.
+      # Returns an Array of Hashes with keys: `:pid`, `:command`, `:nsid`
+      def list_processes(command, blacklist = nil, parents = false,
+                         same_nsid = true)
+        check_nsid = same_nsid
+        blacklist ||= []
+        procs = []
+
+        # `ps` on older platforms (notably centos6 and osx) don't have a pidns
+        # output field, so this command will fail there.
+        # If that's the case, then fall back to the old behavior, and disable
+        # the namespace id checking.
+        begin
+          out = shell_output('ps -e -o pid,pidns,command 2>/dev/null')
+          out.lines.each do |l|
+            fields = l.split
+            procs << {
+              :pid => fields[0].to_i,
+              :nsid => fields[1],
+              :command => fields[2..fields.length].join(' '),
+            }
+          end
+        rescue Mixlib::ShellOut::ShellCommandFailed
+          check_nsid = false
+          out = shell_output('ps -e -o pid,command')
+          out.lines.each do |l|
+            fields = l.split
+            procs << {
+              :pid => fields[0].to_i,
+              :nsid => nil,
+              :command => fields[1..fields.length].join(' '),
+            }
+          end
+        end
+
+        # only want processes that match the command
+        case command
+        when String
+          procs.select! { |p| p[:command].include?(command) }
+        when Regexp
+          procs.select! { |p| command =~ p[:command] }
+        end
+
+        # don't want stuff in the blacklist
+        blacklist.each do |b|
+          procs.reject! { |p| b =~ p[:command] }
+        end
+
+        # don't include stuff above us in the process tree
+        unless parents
+          ppids = parent_group(Process.pid)
+          procs.reject! { |p| ppids.include?(p[:pid]) }
+        end
+
+        # Don't return processes in different namespace IDs
+        # We do this so chefctl runs on hosts don't see chefctl runs in that
+        # host's containers.
+        nsid_f = "/proc/#{Process.pid}/ns/pid"
+        if File.exists?(nsid_f) && check_nsid
+          pid_ns = File.readlink(nsid_f)
+          r = /pid:\[(\d*)\]/.match(pid_ns)
+          if r
+            procs.select! do |p|
+              x = p[:nsid] == '-' || r[1] == p[:nsid]
+              unless x
+                Chefctl.logger.debug(
+                  "Ignoring (#{p[:pid]},#{p[:command].inspect}) since it's " +
+                  "in a different namespace #{p[:nsid]}",
+                )
+              end
+              x
+            end
+          else
+            Chefctl.logger.error(
+              "Uh oh. I couldn't figure out my own pid nsid: #{pid_ns.inspect}",
+            )
+          end
+        else
+          Chefctl.logger.debug('Not checking for process namespaces.')
+        end
+
+        return procs
+      end
+
       # returns an array of pids of running chefctl processes
       def chefctl_procs
-        out = shell_output('ps -e -o pid,command')
-
-        # chef_procs is a hash of {pid => cmd}
-        chef_procs = Hash[out.lines.map do |l|
-          fields = l.split
-          [fields[0].to_i, fields[1..fields.length].join(' ')]
-        end]
-
-        # only want processes with `chefctl` in their argument list
-        chef_procs.select! { |_pid, cmd| /chefctl/ =~ cmd }
-
-        # if someone is editing/viewing chefctl on the box,
-        # don't kill their editor.
-        [
-          /vi/,
-          /less/,
-          /ssh/,
-          /more/,
-          /emacs/,
-        ].each do |editor|
-          chef_procs.reject! { |_pid, cmd| editor =~ cmd }
-        end
-
-        # Don't kill process directly above us in the process tree.
-        parents = parent_group(Process.pid)
-        chef_procs.reject! do |pid, _cmd|
-          parents.include?(pid)
-        end
+        chef_procs = list_processes(
+          /chefctl/,
+          [
+            # if someone is editing/viewing chefctl on the box,
+            # don't kill their editor.
+            /vi/,
+            /less/,
+            /more/,
+            /emacs/,
+            # Don't kill any ssh processes, but we might kill their children
+            # separately. It'll get cleaned up if the child gets killed anyway.
+            /ssh/,
+          ],
+        )
 
         # return only the pids
-        chef_procs.keys
+        chef_procs.map do |p|
+          p[:pid]
+        end
       end
 
       # returns an array of pids of running chef-client processes
       def chefclient_procs
         # chef_client may be a full path
-        client_name = File.basename(Chefctl::Config.chef_client)
-        out = shell_output("pgrep #{client_name}") do |pgrep|
-          pgrep.valid_exit_codes = [0, 1]
+        client_name = File.basename(chef_client_binary)
+        client_procs = list_processes(client_name)
+        client_procs.map do |p|
+          p[:pid]
         end
-        out.lines
       end
 
       # Sends sigterm to the list of processes identifiers provided.
@@ -412,6 +555,10 @@ module Chefctl
       # Reads from the provided file, non-blocking
       def read_nonblock(f)
         f.read_nonblock(Chefctl::BUFFER_SIZE)
+      end
+
+      def symlink(old_name, new_name)
+        FileUtils.ln_s(old_name, new_name, :force => true)
       end
 
       private
@@ -447,12 +594,29 @@ module Chefctl
     class Windows
       include Chefctl::Lib
 
+      class SubshellChefRun
+        # This class' main purpose is to stand-in for a call to Mixlib::ShellOut
+        # Some processes that chef spawns do not play very nicely when being
+        # invoked via chefctl, such as a powershell_script resource.
+        # It appears to be more reliable to have Chef invoked via the
+        # Kernel.system call, which causes the resources to execute normally.
+        attr_accessor :exitstatus
+
+        def initialize(cmd)
+          @exitstatus = system(cmd) ? 0 : 1
+        end
+      end
+
+      def self.run_chef_via_subshell(cmd)
+        SubshellChefRun.new(cmd)
+      end
+
       # returns an array of pids of running chefctl processes
       def chefctl_procs
         require 'wmi-lite'
         this_pid = Process.pid
         wmi = WmiLite::Wmi.new
-        chefctl_procs = %{
+        proc_query = %{
           SELECT
             *
           FROM
@@ -465,7 +629,7 @@ module Chefctl
             ProcessId <> #{this_pid}
         }
 
-        wmi.query(chefctl_procs).map { |p| p['processid'] }
+        wmi.query(proc_query).map { |p| p['processid'] }
       end
 
       # returns an array of pids of running chef-client processes
@@ -473,7 +637,7 @@ module Chefctl
         require 'wmi-lite'
         this_pid = Process.pid
         wmi = WmiLite::Wmi.new
-        chefctl_procs = %{
+        proc_query = %{
           SELECT
             *
           FROM
@@ -486,7 +650,7 @@ module Chefctl
             ProcessId <> #{this_pid}
         }
 
-        wmi.query(chefctl_procs).map { |p| p['processid'] }
+        wmi.query(proc_query).map { |p| p['processid'] }
       end
 
       # Sends sigterm to the list of processes identifiers provided.
@@ -501,17 +665,32 @@ module Chefctl
       def read_nonblock(logf)
         logf.sysread(Chefctl::BUFFER_SIZE)
       end
+
+      def symlink(old_name, new_name)
+        if File.exist?(new_name)
+          File.unlink(new_name)
+        end
+        begin
+          # Windows is fun since it has kinda clowny symlinks, we need to do
+          # this foolishness to get a real symlink.
+          require 'chef/win32/file'
+          Chef::ReservedNames::Win32::File.symlink(old_name, new_name)
+        rescue StandardError => e
+          # If this fails for some reason we hope for the best
+          Chefctl.logger.warn('Silently refusing to create a symlink ' +
+                              "#{new_name} -> #{old_name}, #{e}")
+          return false
+        end
+      end
     end # class Windows
   end # class Lib
 
   class Main
     attr_accessor :plugin
-    def initialize
+    def initialize(logdir, logfile)
       @plugin = Chefctl::Plugin.get_plugin
 
-      logdate = Chefctl.lib.get_timestamp
-      logdir = Chefctl::Config.log_dir
-      @chef_name = File.basename(Chefctl::Config.chef_client)
+      @chef_name = File.basename(Chefctl.lib.chef_client_binary)
       @lock = {
         :file => Chefctl::Config.lock_file,
         :time => Chefctl::Config.lock_time,
@@ -525,7 +704,7 @@ module Chefctl
         # Output files
         :chef_cur => File.join(logdir, 'chef.cur.out'),
         :chef_last => File.join(logdir, 'chef.last.out'),
-        :out => File.join(logdir, "chef.#{logdate}.out"),
+        :out => logfile,
         :first => File.join(logdir, 'chef.first.out'),
       }
     end
@@ -537,11 +716,7 @@ module Chefctl
       # open the lockfile
       # we leave it open if we can acquire the lock,
       # otherwise we close it before we exit this function
-      if File.exists?(@lock[:file])
-        @lock[:fd] = File.open(@lock[:file], 'r+')
-      else
-        @lock[:fd] = File.new(@lock[:file], 'w')
-      end
+      @lock[:fd] = File.open(@lock[:file], 'a+')
 
       endtime = Time.now + timeout
       loop do
@@ -593,6 +768,7 @@ module Chefctl
       Chefctl.logger.debug("Lock acquired: #{@lock[:file]}")
 
       # mark us as owning the lock file
+      @lock[:fd].truncate(0)
       @lock[:fd].write(Process.pid.to_s)
 
       # flush the pid to disk
@@ -632,19 +808,10 @@ module Chefctl
 
     # Perform a chef run
     def chef_run
-      Chefctl.lib.check_user
-
       retval = 0
       lock do
         keep_testing
         plugin.generate_certs
-
-        if File.file?(@paths[:logdir])
-          quit "Log directory #{@paths[:logdir]} is a file."
-        end
-        FileUtils.mkdir_p(@paths[:logdir], :mode => 0o775) unless
-            File.exists?(@paths[:logdir])
-        FileUtils.touch(@paths[:out])
 
         symlink_output(:chef_cur)
 
@@ -667,14 +834,16 @@ module Chefctl
                        ' check log output!')
         end
       end
-      return retval
+
+      Chefctl.close_logger
+      return (retval != 0 ? Chefctl::CHEFCLIENT_FAILURE : 0)
     end
 
     # Symlink the current chef output file to the
     # provided link (key into @paths)
     def symlink_output(link)
       return unless Chefctl::Config.symlink_output
-      FileUtils.ln_s(@paths[:out], @paths[link], :force => true)
+      Chefctl.lib.symlink(@paths[:out], @paths[link])
     end
 
     # Splay for the configured amount.
@@ -730,9 +899,9 @@ module Chefctl
       chef_args = []
 
       # Special command-line arguments
-      chef_args << '-l debug' if Chefctl::Config.debug
+      chef_args += %w{-l debug} if Chefctl::Config.debug
       if Chefctl::Config.human || Chefctl::Config.whyrun
-        chef_args << '-l fatal -F doc'
+        chef_args += %w{-l fatal -F doc}
       end
       chef_args << '--why-run' if Chefctl::Config.whyrun
       chef_args << '--no-color' unless Chefctl::Config.color
@@ -740,25 +909,32 @@ module Chefctl
       chef_args += Chefctl::Config.chef_options
 
       # Join them all together
-      cmd = "#{Chefctl::Config.chef_client} " + chef_args.join(' ')
+      if Chefctl::Config.chef_client.is_a?(Array)
+        cmd = Chefctl::Config.chef_client + chef_args
+      else
+        cmd = [
+          Chefctl::Config.chef_client,
+        ] + chef_args
+      end
 
-      # we want to append the output instead of overwriting the file in case
-      # this is a re-run of chef.
-      cmd << " 2>&1 >> #{@paths[:out]}"
-
-      Chefctl.logger.debug("Running: #{cmd}")
+      Chefctl.logger.debug("Running: #{cmd.inspect}")
 
       cmd
     end
 
     # Returns the environment for the chef process, as a hash
     def get_chef_env
-      hostname = plugin.hostname
+      # Clear out the environment
+      env = ENV.select { |k, _v| Chefctl::Config.passthrough_env.include?(k) }
 
-      {
-        'HOSTNAME' => hostname,
-        'PATH' => Chefctl::Config.path.join(':'),
-      }
+      env['HOSTNAME'] = plugin.hostname
+
+      if Chefctl::Config.path && Chefctl::Config.path.is_a?(Array)
+        env['PATH'] = Chefctl::Config.path.join(File::PATH_SEPARATOR)
+      end
+
+      Chefctl.logger.debug("Using chef-client environment: #{env.inspect}")
+      env
     end
 
     # copy data from the pipe to stdout and the log file.
@@ -817,23 +993,51 @@ module Chefctl
 
     # Perform a chef run.
     def run
-      output_t = output_copier_thread
+      if Chefctl.lib.is_a?(Chefctl::Lib::Windows) &&
+         Chefctl::Config.windows_subshell
+        # TODO(yottatsa): this code is deprecated.
+        # Windows users should proceed with Process.spawn
+        #
+        # subshell run ends up on `system` call,
+        # which is seem to be working, but doesn't do any logging
+        # and environment variables like PATH.
+        Chefctl.logger.warn("Deprecated: windows_subshell shouldn't be used")
+        cmd = get_chef_cmd.join(' ')
+        chef_client =
+          Chefctl::Lib::Windows.run_chef_via_subshell(cmd.freeze)
+      else
+        Chefctl.flush_logger
+        output_t = output_copier_thread
 
-      # We don't want a timeout at all here, but ShellOut doesn't have
-      # a way to disable the timeout, so we set it to 1 day, which is WAAAY
-      # longer than any reasonable chef run should take.
-      # Timeouts are enforced elsewhere at way lower than 1 day.
-      chef_client = Mixlib::ShellOut.new(get_chef_cmd, :timeout => 86400)
-      chef_client.environment = get_chef_env
-      chef_client.run_command
+        unless Chefctl.log_file
+          Chefctl.logger.warn(
+            'chefctl log file is nil!' +
+            "Redirecting chef-client's output to the shell!",
+          )
+        end
+        chef_client_pid = Process.spawn(
+          get_chef_env,
+          *get_chef_cmd,
+          # Chefctl.log_file is set at the bottom of this file by the
+          # init_logger call which is always passed a file, but just
+          # to be safe, we only attempt to log to the file if it's non-nil.
+          # otherwise, just echo the output to the terminal.
+          [:out, :err] => (Chefctl.log_file ? Chefctl.log_file.to_i : STDERR),
+          :close_others => true,
+          # Windows requires lot of environment variables to be set. We used
+          # subshell before, which means we barely changing the behavior.
+          :unsetenv_others => !Chefctl.lib.is_a?(Chefctl::Lib::Windows),
+        )
+        chef_client = Process.wait2(chef_client_pid)[1]
 
-      # output_t is nil if we're running with -q/--quiet
-      if output_t
-        # The output thread is tailing the output of the log file.
-        # We need to interrupt it to stop the tail. Otherwise calling join
-        # would just wait indefinitely.
-        output_t.raise('this is normal')
-        output_t.join(3)
+        # output_t is nil if we're running with -q/--quiet
+        if output_t
+          # The output thread is tailing the output of the log file.
+          # We need to interrupt it to stop the tail. Otherwise calling join
+          # would just wait indefinitely.
+          output_t.raise('this is normal')
+          output_t.join(3)
+        end
       end
 
       return chef_client.exitstatus
@@ -878,7 +1082,11 @@ class TwoPassParser < OptionParser
       # an option it doesn't know. When we get this, we delete the offending
       # options, and retry parsing options.
       e.args.each do |a|
-        first_pass.delete(a)
+        if first_pass.include?(a)
+          first_pass.delete(a)
+        else
+          quit "Couldn't parse #{a}."
+        end
       end
       retry
     end
@@ -889,7 +1097,7 @@ class TwoPassParser < OptionParser
   end
 end # class TwoPassParser
 
-if __FILE__ == $PROGRAM_NAME
+if $PROGRAM_NAME == __FILE__
   Chefctl.lib
 
   config_file = Chefctl::DEFAULT_CONFIG
@@ -944,7 +1152,7 @@ if __FILE__ == $PROGRAM_NAME
       'Enable chef debugging. This is a shortcut to passing " -- -l debug"' +
       ' directly'
     ) do
-      Chefctl.logger.sev_threshold = Logger::DEBUG
+      Chefctl.logger.level = :debug
       options[:debug] = true
     end
 
@@ -977,7 +1185,7 @@ if __FILE__ == $PROGRAM_NAME
       '-L', '--lock-file FILE',
       "Lock file [default: #{Chefctl::Config.lock_file}]"
     ) do |v|
-      options[:lock_time] = v
+      options[:lock_file] = v
     end
 
     parser.on('-q', '--quiet', 'Do not print output to terminal') do
@@ -1002,15 +1210,32 @@ if __FILE__ == $PROGRAM_NAME
 
   args = parse.parse_both_passes do
     Chefctl.lib.load_config(config_file, options)
-    Chefctl.logger.sev_threshold = Logger::DEBUG if Chefctl::Config.verbose
+
+    Chefctl.logger.level = :debug if Chefctl::Config.verbose
     Chefctl::Plugin.load_file(Chefctl::Config.plugin_path)
     Chefctl::Plugin.get_plugin.cli_options(parse)
   end
+
+  Chefctl.lib.check_user
+
+  logdir = Chefctl::Config.log_dir
+  logfile = File.join(logdir, "chef.#{Chefctl.lib.get_timestamp}.out")
+
+  if File.file?(logdir)
+    quit "Log directory #{logdir} is a file."
+  end
+  FileUtils.mkdir_p(logdir, :mode => 0o775) unless
+      File.exists?(logdir)
+  FileUtils.touch(logfile)
+  Chefctl.init_logger(logfile)
+  Chefctl.logger.level = :debug if Chefctl::Config.verbose
 
   Chefctl::Plugin.get_plugin.pre_start
 
   args.delete('--')
   Chefctl::Config.chef_options += args
 
-  exit Chefctl::Main.new.chef_run
+  exit Chefctl::Main.new(logdir, logfile).chef_run
 end
+
+# rubocop:enable Style/CommentedKeyword
