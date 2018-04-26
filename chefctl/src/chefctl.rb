@@ -1,5 +1,6 @@
 #!/opt/chef/embedded/bin/ruby
 
+require 'chef/version'
 require 'date'
 require 'English'
 require 'fileutils'
@@ -902,9 +903,17 @@ module Chefctl
       chef_args += %w{-l debug} if Chefctl::Config.debug
       if Chefctl::Config.human || Chefctl::Config.whyrun
         chef_args += %w{-l fatal -F doc}
+      else
+        # force using the logger instead of the formatter
+        chef_args << '--force-logger'
       end
       chef_args << '--why-run' if Chefctl::Config.whyrun
       chef_args << '--no-color' unless Chefctl::Config.color
+      # suppress duplicate log lines until
+      # https://github.com/chef/chef/issues/7184 is resolved
+      unless Chef::VERSION.start_with?('12')
+        chef_args << '--logfile=/dev/null'
+      end
 
       chef_args += Chefctl::Config.chef_options
 
