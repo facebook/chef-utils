@@ -1056,13 +1056,23 @@ module Chefctl
     # information about how the machine was originally setup.
     def save_firstrun
       unless File.exists?(@paths[:first])
-        # It's a first-run if there's only 1 chef log.
+        # It's a first-run if the current log is the oldest in the directory.
+        # This is a heuristic; in first run, there may be additional chef timer
+        # runs queued up, which means we have initial logs from chefctl.rb. So
+        # we check if our current log has the oldest timestamp in the filename.
+        #
         # The glob here depends on our log date formatting above in
         # Chefctl::Lib.get_timestamp
-        if Dir.glob(File.join(@paths[:logdir], 'chef.2*')).length == 1
+        oldest_log = Dir.glob(File.join(@paths[:logdir], 'chef.2*')).sort[0]
+        if @paths[:out] == oldest_log
+          Chefctl.logger.debug("Copying first-run log to #{@paths[:first]}")
           # Copy, don't symlink so it's not deleted later as more chef runs
           # happen.
           FileUtils.cp(@paths[:out], @paths[:first])
+        else
+          Chefctl.logger.debug("No first-run log at #{@paths[:first]}, but " +
+            "the current log (#{@paths[:out]}) isn't the oldest log " +
+            "(#{oldest_log}), so we're not copying to #{@paths[:first]}.")
         end
       end
     end
