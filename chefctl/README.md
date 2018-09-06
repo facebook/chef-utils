@@ -36,7 +36,7 @@ See `sample_hooks/` for a few sample hooks for common use-cases.
 ## Getting started
 
 `chefctl.rb` is the main Chef controller script you'll want to deploy on your
-machines; `chefctl_hooks.rb` and `chefctl_config.rb` are empty hook and config 
+machines; `chefctl_hooks.rb` and `chefctl-config.rb` are empty hook and config 
 files for it. If you're using systemd, we also provide unit files that can be
 used to run Chef via `chefctl.rb` under `systemd/`.
 
