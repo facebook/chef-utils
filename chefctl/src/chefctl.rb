@@ -518,7 +518,7 @@ module Chefctl
       # returns an array of pids of running chefctl processes
       def chefctl_procs
         chef_procs = list_processes(
-          /chefctl/,
+          /#{Chefctl.program_name}/,
           [
             # if someone is editing/viewing chefctl on the box,
             # don't kill their editor.
