@@ -34,7 +34,8 @@ module Chefctl
   # failures. (i.e. anything that isn't this number is a chefctl failure)
   CHEFCLIENT_FAILURE = 4 # chosen by fair dice roll.
 
-  @program_name = File.basename($PROGRAM_NAME)
+  # let's be us, unless someone asked us to be someone else
+  @program_name = 'chefctl'
   @logger = nil
   @lib = nil
   @log_file = nil
