@@ -3,9 +3,8 @@ We want to make contributing to this project as easy and transparent as
 possible.
 
 ## Our Development Process
-All changes to Chef Utils are developed on this GitHub repo. Changes
-committed are then rolled out internally before a formal release is done on
-RubyGems.
+Chef Utils is developed on a Facebook-internal repo and synced out several times
+an hour via ShipIt.
 
 ## Pull Requests
 We actively welcome your pull requests.
