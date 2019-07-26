@@ -79,6 +79,8 @@ module Chefctl
     end
     @logger.loggers.each do |log|
       log.formatter = proc do |severity, datetime, progname, msg|
+        progname ||= program_name
+        msg = msg[:msg] if msg.is_a?(Hash)
         "[#{datetime}] #{severity} #{progname}: #{msg}\n"
       end
       log.progname = program_name
