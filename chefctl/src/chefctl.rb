@@ -199,6 +199,7 @@ module Chefctl
       HOME
       SUDO_USER
       XAR_MOUNT_SEED
+      CHEF_LICENSE
     }
 
     # TODO(yottatsa): this option is deprecated
