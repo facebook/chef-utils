@@ -549,6 +549,7 @@ module Chefctl
             # Don't kill any ssh processes, but we might kill their children
             # separately. It'll get cleaned up if the child gets killed anyway.
             /ssh/,
+            # Facebook-ism, ignore
             /sush/,
           ],
         )
@@ -1236,6 +1237,13 @@ if $PROGRAM_NAME == __FILE__
     end
 
     parser.on(
+      '-w', '--wait-for-chef',
+      'Simply run the stop-or-wait-for-chef step, do not actually run Chef'
+    ) do
+      options[:wait_for_chef] = true
+    end
+
+    parser.on(
       '--program PROGRAM',
       "name of the chefctl process. defaults to '#{$PROGRAM_NAME}'",
     ) do |v|
@@ -1264,6 +1272,11 @@ if $PROGRAM_NAME == __FILE__
   FileUtils.touch(logfile)
   Chefctl.init_logger(logfile)
   Chefctl.logger.level = :debug if Chefctl::Config.verbose
+
+  if options[:wait_for_chef]
+    Chefctl.lib.stop_or_wait_for_chef
+    exit
+  end
 
   Chefctl::Plugin.get_plugin.pre_start
 
