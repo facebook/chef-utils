@@ -248,7 +248,7 @@ Since this is a `ruby_block`, the read will happen at run time, and as long as t
 
 ## Library Calls
 
-Library calls are often confusimg. The important thing to remember is that
+Library calls are often confusing. The important thing to remember is that
 library code is not inherently compile-time nor runtime - it's simply where you
 call it. So, for example, in a recipe, this:
 
@@ -259,7 +259,7 @@ package FB::Thingy.determine_packages(node) do
 end
 ```
 
-where `determine_packages` is selecting packages based on the API attributes set in the node, is **not** runtime-safe. The esact same code inside of a custom resource **would** be runtime-safe. Or doing the following in a recipe instead would also be runtime-safe:
+where `determine_packages` is selecting packages based on the API attributes set in the node, is **not** runtime-safe. The exact same code inside of a custom resource **would** be runtime-safe. Or doing the following in a recipe instead would also be runtime-safe:
 
 ```ruby
 package 'thingy packages' do
@@ -267,3 +267,5 @@ package 'thingy packages' do
   action :upgrade
 end
 ```
+
+And, just to be clear, if a method never references the node, or anything in the node (or only references Ohai data), then it is inherently safe to call any time.
