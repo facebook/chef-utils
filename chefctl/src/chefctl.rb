@@ -181,6 +181,8 @@ module Chefctl
     # The default PATH environment variable to use for chef-client.
     # Should be unset for Windows if `windows_subshell` is set to false
     path %w{
+      /bin
+      /sbin
       /usr/sbin
       /usr/bin
     }
