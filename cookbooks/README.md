@@ -1,1 +1,2 @@
-Facebook cookbooks are now housed at http://github.com/facebook/chef-cookbooks
+Facebook cookbooks are now housed in the
+[chef-cookbooks](http://github.com/facebook/chef-cookbooks) repository.
