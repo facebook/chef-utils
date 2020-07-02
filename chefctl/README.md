@@ -17,10 +17,10 @@ of Chef is running at a given time.
 
 ## Requirements
 
-`chefctl.rb` does not bootstrap Chef (though you could do that with a plugin 
-if you wanted), and expects the system to use Omnibus Chef (as it relies on the 
+`chefctl.rb` does not bootstrap Chef (though you could do that with a plugin
+if you wanted), and expects the system to use Omnibus Chef (as it relies on the
 embedded ruby it provides). If you're not using Omnibus you'll want to run
-`chefctl.rb` via your own Ruby interpreter, or change its shebang to point to 
+`chefctl.rb` via your own Ruby interpreter, or change its shebang to point to
 it.
 
 ## Customizing Behavior with Hooks
@@ -36,7 +36,7 @@ See `sample_hooks/` for a few sample hooks for common use-cases.
 ## Getting started
 
 `chefctl.rb` is the main Chef controller script you'll want to deploy on your
-machines; `chefctl_hooks.rb` and `chefctl-config.rb` are empty hook and config 
+machines; `chefctl_hooks.rb` and `chefctl-config.rb` are empty hook and config
 files for it. If you're using systemd, we also provide unit files that can be
 used to run Chef via `chefctl.rb` under `systemd/`.
 
@@ -49,7 +49,7 @@ The high-level behavior of chefctl.rb is as follows:
 - Call the `pre_start` hook
 - Acquire the lock
 - Call the `pre_run` hook
-- Run chef
+- Run Chef
 - Call `rerun_chef?` unless we've hit `Chefctl::Config.max_retries`
 - Rerun chef if necessary
 - Call the `post_run` hook
