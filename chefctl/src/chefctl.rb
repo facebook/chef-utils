@@ -451,14 +451,14 @@ module Chefctl
 
       # Returns a list of processes whos commands match the given command.
       # `command` should be a Regexp or String.
-      # `blacklist` should be an Array of Regexp.
-      # If blacklist is provided, commands that match any of the entries are
+      # `denylist` should be an Array of Regexp.
+      # If denylist is provided, commands that match any of the entries are
       # not included in the output.
       # Returns an Array of Hashes with keys: `:pid`, `:command`, `:nsid`
-      def list_processes(command, blacklist = nil, parents = false,
+      def list_processes(command, denylist = nil, parents = false,
                          same_nsid = true)
         check_nsid = same_nsid
-        blacklist ||= []
+        denylist ||= []
         procs = []
 
         # `ps` on older platforms (notably centos6 and osx) don't have a pidns
@@ -496,8 +496,8 @@ module Chefctl
           procs.select! { |p| command =~ p[:command] }
         end
 
-        # don't want stuff in the blacklist
-        blacklist.each do |b|
+        # don't want stuff in the denylist
+        denylist.each do |b|
           procs.reject! { |p| b =~ p[:command] }
         end
 
