@@ -138,6 +138,8 @@ module Chefctl
     # Whether or not chef-client should provide debug output.
     debug false
 
+    trace false
+
     # Default options to pass to chef-client.
     chef_options ['--no-fork']
 
@@ -924,7 +926,12 @@ module Chefctl
       chef_args = []
 
       # Special command-line arguments
-      chef_args += %w{-l debug} if Chefctl::Config.debug
+      if Chefctl::Config.trace
+        chef_args += %w{-l trace}
+      elsif Chefctl::Config.debug
+        chef_args += %w{-l debug}
+      end
+
       if Chefctl::Config.human || Chefctl::Config.whyrun
         chef_args += %w{-l fatal -F doc}
       else
@@ -1236,6 +1243,15 @@ if $PROGRAM_NAME == __FILE__
       " with the -i option. [default: #{Chefctl::Config.splay}]"
     ) do |v|
       options[:splay] = v.to_i
+    end
+
+    parser.on(
+      '-t', '--trace',
+      'Enable chef trace logging. This is a shortcut to passing' +
+      '" -- -l trace" directly. This supersedes --debug'
+    ) do
+      Chefctl.logger.level = :trace
+      options[:trace] = true
     end
 
     parser.on(
