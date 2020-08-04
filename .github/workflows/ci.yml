@@ -13,3 +13,20 @@ jobs:
       uses: actionshub/markdownlint@1.2.0
     - name: Check links
       uses: gaurav-nelson/github-action-markdown-link-check@v1
+  ruby:
+    strategy:
+      fail-fast: false
+      matrix:
+        ruby: [2.5, 2.6]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v2
+    - name: Setup Ruby
+      uses: ruby/setup-ruby@v1
+      with:
+        ruby-version: ${{ matrix.ruby }}
+    - name: Install dependencies
+      run: bundle install
+    - name: Run rubocop
+      run: ./scripts/run_rubocop .rubocop.yml
