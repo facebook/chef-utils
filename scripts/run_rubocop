@@ -30,7 +30,7 @@ else
   exit 1
 fi
 
-if [ "$#" -eq 0 ] || ! fgrep -- '-c' <<< "$*"; then
+if [ "$#" -eq 0 ] || ! grep -F -- '-c' <<< "$*"; then
   opts='-c .rubocop.yml'
 fi
 
