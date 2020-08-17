@@ -331,7 +331,7 @@ module Chefctl
     # Loads the plugin from a file
     def self.load_file(filename)
       filename = File.expand_path(filename)
-      if File.exists? filename
+      if File.exist? filename
         Chefctl.logger.debug("Loading plugin at #{filename}.")
         begin
           require_relative filename
@@ -364,7 +364,7 @@ module Chefctl
     def stop_or_wait_for_chef(logfile = false)
       # check to see whether or not chef is running
       return if chefctl_procs.empty?
-      return if logfile && !File.exists?(logfile)
+      return if logfile && !File.exist?(logfile)
 
       client_name = File.basename(chef_client_binary)
 
@@ -424,7 +424,7 @@ module Chefctl
     def load_config(config_file, cli_options = {})
       validate_options(cli_options)
       filename = File.expand_path(config_file)
-      if File.exists?(filename)
+      if File.exist?(filename)
         Chefctl::Config.from_file(filename)
       end
       Chefctl::Config.merge!(cli_options)
@@ -513,7 +513,7 @@ module Chefctl
         # We do this so chefctl runs on hosts don't see chefctl runs in that
         # host's containers.
         nsid_f = "/proc/#{Process.pid}/ns/pid"
-        if File.exists?(nsid_f) && check_nsid
+        if File.exist?(nsid_f) && check_nsid
           pid_ns = File.readlink(nsid_f)
           r = /pid:\[(\d*)\]/.match(pid_ns)
           if r
@@ -763,7 +763,7 @@ module Chefctl
     # already
     def keep_testing
       stamp_file = Chefctl::Config.testing_timestamp
-      return unless File.exists?(stamp_file)
+      return unless File.exist?(stamp_file)
       now = Time.now
       new_time = now + 3600
       if File.mtime(stamp_file) - now < 3600
@@ -816,7 +816,7 @@ module Chefctl
         # handles. /me glares silently in the direction of Redmond...
         @lock[:fd].close
 
-        File.unlink(@lock[:file]) if File.exists?(@lock[:file]) && @lock[:held]
+        File.unlink(@lock[:file]) if File.exist?(@lock[:file]) && @lock[:held]
         @lock[:fd] = nil
       end
     end
@@ -1081,7 +1081,7 @@ module Chefctl
     # Saves the output from the very first chef run indefinitely so we have
     # information about how the machine was originally setup.
     def save_firstrun
-      unless File.exists?(@paths[:first])
+      unless File.exist?(@paths[:first])
         # It's a first-run if the current log is the oldest in the directory.
         # This is a heuristic; in first run, there may be additional chef timer
         # runs queued up, which means we have initial logs from chefctl.rb. So
@@ -1089,7 +1089,7 @@ module Chefctl
         #
         # The glob here depends on our log date formatting above in
         # Chefctl::Lib.get_timestamp
-        oldest_log = Dir.glob(File.join(@paths[:logdir], 'chef.2*')).sort[0]
+        oldest_log = Dir.glob(File.join(@paths[:logdir], 'chef.2*')).min
         if @paths[:out] == oldest_log
           Chefctl.logger.debug("Copying first-run log to #{@paths[:first]}")
           # Copy, don't symlink so it's not deleted later as more chef runs
@@ -1286,7 +1286,7 @@ if $PROGRAM_NAME == __FILE__
     quit "Log directory #{logdir} is a file."
   end
   FileUtils.mkdir_p(logdir, :mode => 0o775) unless
-      File.exists?(logdir)
+      File.exist?(logdir)
   FileUtils.touch(logfile)
   Chefctl.init_logger(logfile)
   Chefctl.logger.level = :debug if Chefctl::Config.verbose

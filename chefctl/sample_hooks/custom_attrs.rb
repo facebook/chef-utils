@@ -42,7 +42,7 @@ module CustomAttributes
   def pre_start
     if @custom_attr
       @tmp_file = Tmpfile.new('attributes')
-      attrs = {'custom_attributes' => @custom_attr}
+      attrs = { 'custom_attributes' => @custom_attr }
       @tmp_file.write(JSON.generate(attrs))
       @tmp_file.close
       Chefctl::Config.chef_options += ['-j', @tmp_file.path]
