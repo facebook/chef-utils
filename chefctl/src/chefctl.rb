@@ -330,18 +330,22 @@ module Chefctl
 
     # Loads the plugin from a file
     def self.load_file(filename)
-      filename = File.expand_path(filename)
-      if File.exist? filename
-        Chefctl.logger.debug("Loading plugin at #{filename}.")
-        begin
-          require_relative filename
-        rescue LoadError => e
-          Chefctl.logger.debug("While loading #{filename} got error: #{e}")
-          Chefctl.logger.warn("Failed to load plugin #{filename}. Failing!")
-          raise
+      if filename
+        filename = File.expand_path(filename)
+        if File.exist? filename
+          Chefctl.logger.debug("Loading plugin at #{filename}.")
+          begin
+            require_relative filename
+          rescue LoadError => e
+            Chefctl.logger.debug("While loading #{filename} got error: #{e}")
+            Chefctl.logger.warn("Failed to load plugin #{filename}. Failing!")
+            raise
+          end
+        else
+          Chefctl.logger.info("Plugin file not found at #{filename}. Ignoring.")
         end
       else
-        Chefctl.logger.info("Plugin file not found at #{filename}. Ignoring.")
+        Chefctl.logger.info('Plugin file not defined. Ignoring.')
       end
     end
   end # class Plugin
