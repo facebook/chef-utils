@@ -885,6 +885,11 @@ module Chefctl
 
       t = rand(Chefctl::Config.splay)
       Chefctl.logger.info("splay: sleeping for #{t} seconds.")
+      begin
+        Chefctl.log_file.fsync
+      rescue NotImplementedError
+        Chefctl.logger.warn('No fsync support, splay message was delayed')
+      end
 
       # Ruby doesn't respond to SIGTERM inside a sleep call.
       # So we sleep in one second intervals. This way if something sends us
