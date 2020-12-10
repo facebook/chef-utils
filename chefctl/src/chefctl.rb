@@ -747,15 +747,27 @@ module Chefctl
       # open the lockfile
       # we leave it open if we can acquire the lock,
       # otherwise we close it before we exit this function
-      @lock[:fd] = File.open(@lock[:file], 'a+')
-
       endtime = Time.now + timeout
+      open_for_writing = false
       loop do
-        acquired = @lock[:fd].flock(File::LOCK_EX | File::LOCK_NB)
-        return true if acquired
+        unless open_for_writing
+          begin
+            @lock[:fd] = File.open(@lock[:file], 'a+')
+            open_for_writing = true
+          rescue Errno::EACCES
+            # Windows will throw EACCES if the lock file is currently open in
+            # another process.
+            open_for_writing = false
+          end
+        end
+
+        if open_for_writing
+          acquired = @lock[:fd].flock(File::LOCK_EX | File::LOCK_NB)
+          return true if acquired
+        end
 
         if Time.now >= endtime
-          @lock[:fd].close
+          @lock[:fd].close if open_for_writing
           return false
         else
           sleep 2
@@ -786,9 +798,11 @@ module Chefctl
       Chefctl.logger.debug("Trying lock #{@lock[:file]}")
       acquired = wait_for_lock(-1)
       unless acquired
-        held = nil
-        File.open(@lock[:file], 'r') do |f|
-          held = f.read.strip
+        held = 'another process'
+        unless Chefctl.lib.is_a?(Chefctl::Lib::Windows)
+          File.open(@lock[:file], 'r') do |f|
+            held = f.read.strip
+          end
         end
         Chefctl.logger.info("#{@lock[:file]} is locked by #{held}, " +
                             "waiting up to #{@lock[:time]} seconds.")
