@@ -65,14 +65,46 @@ services.map! { |service| service.chomp('*') }
 # so we don't have to determine if we're running on OPC with a tiered
 # architecture or OSC which could have services split in various ways. We just
 # try every stat and report anything we're able to collect.
-def _safe_get(name)
+def _safe_get(name, default_rv: {})
   yield
 rescue => e
   if %w{info debug}.include?(Chef::Config[:log_level].to_s)
     warn "#{name}: #{e.message}"
     warn e.backtrace.inspect if Chef::Config[:log_level].to_s == 'debug'
   end
-  return {}
+  return default_rv
+end
+
+def get_org_urls
+  pivotal_key = Chef::Config[:chef_server_stats_pivotal_key]
+  unless pivotal_key
+    # Don't aggregate across orgs, just use the default url
+    return [Chef::Config[:chef_server_url]]
+  end
+
+  # Save config vaules that we will update
+  chef_server_url = Chef::Config[:chef_server_url]
+  client_key = Chef::Config[:client_key]
+  http_retry_count = Chef::Config[:http_retry_count]
+  node_name = Chef::Config[:node_name]
+
+  base_url = chef_server_url.match('^(http.*./)organizations/.*')[1]
+  Chef::Config[:chef_server_url] = base_url
+  Chef::Config[:client_key] = pivotal_key
+  Chef::Config[:http_retry_count] = 0
+  Chef::Config[:node_name] = 'pivotal'
+
+  org_urls = _safe_get(__method__, :default_rv => []) do
+    api.get('organizations').values
+  end
+
+  # Restore config vaules that we updated
+  Chef::Config[:chef_server_url] = chef_server_url
+  Chef::Config[:client_key] = client_key
+  Chef::Config[:http_retry_count] = http_retry_count
+  Chef::Config[:node_name] = node_name
+
+  return org_urls
 end
 
 # Get counts from the chef server API
@@ -80,17 +112,40 @@ def get_api_counts(services)
   # There's no point in this if we're on a chef server front-end
   return {} unless services.include?('postgresql') ||
                    services.include?('postgres')
-  _safe_get(__method__) do
-    Chef::Config[:http_retry_count] = 0
-    stats = {
-      # Skip client count because searching is slow. Uncomment if you like.
-      # 'chef.server.num_clients' => search(:client, "*:*").count,
-      'chef.server.num_nodes' => api.get('nodes').count,
-      'chef.server.num_cookbooks' => api.get('cookbooks').count,
-      'chef.server.num_roles' => api.get('roles').count,
+
+  # Save config vaules that we will update
+  chef_server_url = Chef::Config[:chef_server_url]
+  http_retry_count = Chef::Config[:http_retry_count]
+
+  Chef::Config[:http_retry_count] = 0
+  stats = _safe_get(__method__) do
+
+    # Skip num_clients count because searching is slow.
+    # Uncomment below if if you like.
+
+    agg = {
+      # 'chef.server.num_clients' => 0,
+      'chef.server.num_nodes' => 0,
+      'chef.server.num_cookbooks' => 0,
+      'chef.server.num_roles' => 0,
     }
-    return stats
+
+    get_org_urls.each do |org_url|
+      Chef::Config[:chef_server_url] = org_url
+      # agg['chef.server.num_clients'] += search(:client, "*:*").count
+      agg['chef.server.num_nodes'] += api.get('nodes').count
+      agg['chef.server.num_cookbooks'] += api.get('cookbooks').count
+      agg['chef.server.num_roles'] += api.get('roles').count
+    end
+
+    agg
   end
+
+  # Restore config vaules that we updated
+  Chef::Config[:chef_server_url] = chef_server_url
+  Chef::Config[:http_retry_count] = http_retry_count
+
+  return stats
 end
 
 # Get couchdb stats
