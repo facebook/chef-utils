@@ -135,10 +135,7 @@ following cases:
   </tr>
   <tr>
     <td>ruby within a template</td>
-    <td>
-      `only_if`, `not_if`: specify a code block which will be resolved at run
-      time
-    </td>
+    <td>templates are rendered at runtime</td>
     <td>
       in <tt>some_template.rb</tt>:<br>
 <pre lang="ruby">
@@ -148,7 +145,10 @@ version = <%= node['some']['attribute'] %>
   </tr>
   <tr>
     <td>guards</td>
-    <td>templates are rendered at runtime</td>
+    <td>
+      `only_if`, `not_if`: specify a code block which will be resolved at run
+      time
+    </td>
     <td>
 <pre lang="ruby">
 package 'some package' do
