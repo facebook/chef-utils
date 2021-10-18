@@ -29,4 +29,4 @@ jobs:
     - name: Install dependencies
       run: bundle install
     - name: Run rubocop
-      run: ./scripts/run_rubocop .rubocop.yml
+      run: ./scripts/run_rubocop .rubocop_55.yml
