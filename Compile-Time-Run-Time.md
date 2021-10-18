@@ -3,9 +3,9 @@
 This document covers the Chef two-phase run system, specifically geared towards
 how that interacts with the API model we use with Chef at Facebook. If you're
 not familiar with our model, you should read our
-[Philosophy](https://github.com/facebook/chef-utils/blob/master/Philosophy.md)
+[Philosophy](https://github.com/facebook/chef-utils/blob/main/Philosophy.md)
 document and our
-[Cookbooks README.md](https://github.com/facebook/chef-cookbooks/blob/master/README.md)
+[Cookbooks README.md](https://github.com/facebook/chef-cookbooks/blob/main/README.md)
 first. If you are completely new to Chef, you might want to start with some
 introductory material before delving into this.
 
@@ -89,7 +89,7 @@ be more specific to the system, and therefore better suited to define the
 desired state.
 
 In this example, within the
-[`fb_swap`](https://github.com/facebook/chef-cookbooks/tree/master/cookbooks/fb_swap)
+[`fb_swap`](https://github.com/facebook/chef-cookbooks/tree/main/cookbooks/fb_swap)
 cookbook, which actually implements this setting, the resources which read this
 value are only allowed to do so _at run-time_.  This is denoted with just
 `node`, to indicate this is a _reader_:
@@ -308,7 +308,7 @@ at run time, and is therefore API safe.
 If you have to read the contents of one API in order to write another API, you
 can often achieve this by using a `whyrun_safe_ruby_block` which is prior to
 the implementing resource. For example, to add an entry to the hash for each
-[`fb_timers`](https://github.com/facebook/chef-cookbooks/tree/master/cookbooks/fb_timers)
+[`fb_timers`](https://github.com/facebook/chef-cookbooks/tree/main/cookbooks/fb_timers)
 job in an API-safe way, you can do:
 
 ```ruby

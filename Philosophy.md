@@ -101,7 +101,8 @@ end
 There's an entry in there for every entry you'd find in the RPM-provided file on
 a RHEL system, many of them with tuned values based on data from Ohai.
 
-Next we define a template for /etc/sysctl.conf in `recpies/default.rb` like so:
+Next we define a template for `/etc/sysctl.conf` in `recpies/default.rb` like
+so:
 
 ```ruby
 template '/etc/sysctl.conf' do
@@ -158,7 +159,7 @@ template '/etc/cron.d/fb_crontab' do
 end
 ```
 
-Now, in the template, we do some more intersting work. This is
+Now, in the template, we do some more interesting work. This is
 `templates/defaults/fb_crontab.erb`:
 
 ```ruby
@@ -194,8 +195,7 @@ be useful to others.
 
 We have a chef server (or actually, set of servers) in each one of our clusters.
 Each acts independently but must have its cookbooks and roles up-to-date. In
-order to accomplish this we wrote
-[Grocery Delivery](https://github.com/facebook/grocery-delivery).
+order to accomplish this we wrote [Grocery Delivery](https://github.com/facebook/grocery-delivery).
 
 Grocery Delivery runs on each Chef server (or Chef Backend if you use 'tier' or
 'ha' mode in Enterprise Chef). It keeps a git or svn checkout of a repo of
@@ -224,8 +224,7 @@ also wasn't terribly important to us.
 Finally, we want to treat chef servers as ephemeral, so persisting node data is
 not practical.
 
-Because of this we worked with Opscode/Chef to develop
-[attribute whitelisting](https://docs.chef.io/nodes/#whitelist-attributes),
+Because of this we worked with Chef to develop [attribute whitelisting](https://docs.chef.io/nodes/#whitelist-attributes),
 which will delete any entries from your node objects that aren't in a whitelist
 prior to calling `node.save()`. Note that before Chef 11 this was implemented in
 the [whitelist_node_attrs](https://github.com/opscode/whitelist-node-attrs)
@@ -237,16 +236,15 @@ In order to easily manage the many, many chef servers we have, we wanted to
 treat them as stateless servers. Since we don't save node data to them, we were
 already half way there. Grocery Delivery syncs cookbooks and roles, which gets
 us 90% of the way there. We don't use databags, so that wasn't an issue. The
-only thing left is runlists, and we enforce those on the client side by passing
-in extra JSON attrs on the client side with a run_list defined. That run_list is
-a template written out by Chef so it's easy to change.
+only thing left is run-lists, and we enforce those on the client side by
+passing in extra JSON attrs on the client side with a run_list defined. That
+run_list is a template written out by Chef so it's easy to change.
 
 ## Monitoring
 
 We have lots of different monitoring around Chef and hope to have more of it
 open-sourced soon. At the moment the piece we have available is
-chef-server-stats which can be found in our
-[Chef Utilities repository](https://github.com/facebook/chef-utils).
+chef-server-stats which can be found in our [Chef Utilities repository](https://github.com/facebook/chef-utils).
 
 Chef-server-stats - when run on a chef server - will determine what components
 are running and then provide as many stats as possible from each of them, and
