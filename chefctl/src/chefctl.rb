@@ -834,7 +834,11 @@ module Chefctl
         # handles. /me glares silently in the direction of Redmond...
         @lock[:fd].close
 
-        File.unlink(@lock[:file]) if File.exist?(@lock[:file]) && @lock[:held]
+        if Gem.win_platform?
+          File.delete(@lock[:file])
+        elsif File.exist?(@lock[:file]) && @lock[:held]
+          File.unlink(@lock[:file])
+        end
         @lock[:fd] = nil
       end
     end
