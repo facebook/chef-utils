@@ -801,9 +801,7 @@ module Chefctl
         held = 'another process'
         unless Chefctl.lib.is_a?(Chefctl::Lib::Windows)
           File.open(@lock[:file], 'r') do |f|
-            held_pid = f.read.strip
-            # the lock file might have been just truncated before unlocking
-            held = held_pid unless held_pid == ''
+            held = f.read.strip
           end
         end
         Chefctl.logger.info("#{@lock[:file]} is locked by #{held}, " +
@@ -828,9 +826,6 @@ module Chefctl
     def release_lock
       if @lock[:fd]
         if @lock[:held]
-          # Clear the pid from the lockfile before unlocking
-          @lock[:fd].truncate(0)
-
           @lock[:fd].flock(File::LOCK_UN)
           Chefctl.logger.debug("Releasing lock: #{@lock[:file]}")
         end
@@ -839,11 +834,11 @@ module Chefctl
         # handles. /me glares silently in the direction of Redmond...
         @lock[:fd].close
 
-        # We do not remove the lock file to avoid race condition:
-        # If 2 chef runs are starting around now, one before and one after
-        # the lock file removal then both will get a lock and execute in
-        # parallel.
-
+        if Gem.win_platform?
+          File.delete(@lock[:file])
+        elsif File.exist?(@lock[:file]) && @lock[:held]
+          File.unlink(@lock[:file])
+        end
         @lock[:fd] = nil
       end
     end
