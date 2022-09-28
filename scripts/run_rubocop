@@ -19,10 +19,8 @@
 
 set -eu
 
-CONFIG_VERSION=.rubocop.yml
 if bundle exec rubocop --version > /dev/null 2>&1; then
   RUBOCOP='bundle exec rubocop'
-  CONFIG_VERSION=.rubocop_55.yml
 elif [ -x /opt/chef-workstation/embedded/bin/rubocop ]; then
   RUBOCOP='/opt/chef-workstation/embedded/bin/rubocop'
 elif [ -x /opt/chef/embedded/bin/rubocop ]; then
@@ -32,8 +30,4 @@ else
   exit 1
 fi
 
-if [ "$#" -eq 0 ] || ! grep -F -- '-c' <<< "$*"; then
-  opts="--config=$CONFIG_VERSION"
-fi
-
-exec $RUBOCOP --display-cop-names $opts "$@"
+exec $RUBOCOP --display-cop-names "$@"

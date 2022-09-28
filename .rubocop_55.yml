@@ -1,2 +1,0 @@
-inherit_from:
-    - https://raw.githubusercontent.com/facebook/chef-cookbooks/master/.rubocop_55.yml

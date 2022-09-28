@@ -718,6 +718,7 @@ module Chefctl
 
   class Main
     attr_accessor :plugin
+
     def initialize(logdir, logfile)
       @plugin = Chefctl::Plugin.get_plugin
 
