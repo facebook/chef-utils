@@ -197,13 +197,13 @@ module Chefctl
     # Note that PATH and HOSTNAME are set by `path` and `hostname` in Config
     # and Plugin, respectively, so including them here does nothing.
     passthrough_env %w{
-      USER
+      CHEF_LICENSE
+      HOME
       LOGNAME
       PWD
-      HOME
       SUDO_USER
+      USER
       XAR_MOUNT_SEED
-      CHEF_LICENSE
     }
 
     # TODO(yottatsa): this option is deprecated
@@ -980,7 +980,7 @@ module Chefctl
         ] + chef_args
       end
 
-      Chefctl.logger.debug("Running: #{cmd.inspect}")
+      Chefctl.logger.info("Running chef-client: #{cmd.inspect}")
 
       cmd
     end
@@ -996,7 +996,7 @@ module Chefctl
         env['PATH'] = Chefctl::Config.path.join(File::PATH_SEPARATOR)
       end
 
-      Chefctl.logger.debug("Using chef-client environment: #{env.inspect}")
+      Chefctl.logger.info("Running chef-client with the following environment variables: #{env.inspect}")
       env
     end
 
