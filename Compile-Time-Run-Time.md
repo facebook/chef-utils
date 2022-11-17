@@ -65,7 +65,7 @@ list of corresponding actions.
 
 In the Facebook model, we build upon the Chef _node object_ to define
 configuration data, and then implement that configuration by reading from the
-same node object. This means that the order or critical; if the implementation
+same node object. This means that the order is critical; if the implementation
 code reads the configured value _prior_ to the value being defined, the system
 falls apart.
 
