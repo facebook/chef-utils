@@ -1,5 +1,5 @@
 inherit_from:
-    - https://raw.githubusercontent.com/facebook/chef-cookbooks/master/.rubocop.yml
+    - https://raw.githubusercontent.com/facebook/chef-cookbooks/main/.rubocop.yml
 
 # TODO: This will require some testing before enabling
 Style/GlobalStdStream:
