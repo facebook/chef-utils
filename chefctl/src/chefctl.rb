@@ -801,8 +801,12 @@ module Chefctl
       unless acquired
         held = 'another process'
         unless Chefctl.lib.is_a?(Chefctl::Lib::Windows)
-          File.open(@lock[:file], 'r') do |f|
-            held = f.read.strip
+          begin
+            File.open(@lock[:file], 'r') do |f|
+              held = f.read.strip
+            end
+          rescue Errno::ENOENT
+            Chefctl.logger.info('Possible lockfile race, re-running wait_for_lock')
           end
         end
         Chefctl.logger.info("#{@lock[:file]} is locked by #{held}, " +
