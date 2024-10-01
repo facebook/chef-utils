@@ -933,7 +933,7 @@ module Chefctl
       retval = 0
       num_tries = 0
       loop do
-        retval = run
+        retval = run(num_tries)
         num_tries += 1
 
         # break if we've already run chef the max number of times
@@ -1000,7 +1000,6 @@ module Chefctl
         env['PATH'] = Chefctl::Config.path.join(File::PATH_SEPARATOR)
       end
 
-      Chefctl.logger.info("Running chef-client with the following environment variables: #{env.inspect}")
       env
     end
 
@@ -1059,7 +1058,7 @@ module Chefctl
     end
 
     # Perform a chef run.
-    def run
+    def run(retry_count)
       if Chefctl.lib.is_a?(Chefctl::Lib::Windows) &&
          Chefctl::Config.windows_subshell
         # TODO(yottatsa): this code is deprecated.
@@ -1082,8 +1081,14 @@ module Chefctl
             "Redirecting chef-client's output to the shell!",
           )
         end
+        chef_env = get_chef_env
+        if retry_count > 0
+          Chefctl.logger.warn("This is a rerun attempt, rerun number #{retry_count}")
+          chef_env['RETRY_COUNT'] = retry_count.to_s
+        end
+        Chefctl.logger.info("Running chef-client with the following environment variables: #{chef_env.inspect}")
         chef_client_pid = Process.spawn(
-          get_chef_env,
+          chef_env,
           *get_chef_cmd,
           # Chefctl.log_file is set at the bottom of this file by the
           # init_logger call which is always passed a file, but just
