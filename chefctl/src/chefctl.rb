@@ -170,6 +170,9 @@ module Chefctl
     # See Chefctl::Plugin.rerun_chef?
     max_retries 1
 
+    # where to find certs and configs
+    client_config_dir '/etc/chef'
+
     # The testing timestamp.
     # See https://github.com/facebook/taste-tester
     testing_timestamp '/etc/chef/test_timestamp'
@@ -249,7 +252,7 @@ module Chefctl
     # them if necessary.
     # The return value is ignored.
     def generate_certs
-      client_prod_cert = '/etc/chef/client-prod.pem'
+      client_prod_cert = "#{Chefctl::Config.client_config_dir}/client-prod.pem"
       if File.zero?(client_prod_cert)
         Chefctl.logger.info('zero-byte client pem found, removing')
         File.unlink(client_prod_cert)
