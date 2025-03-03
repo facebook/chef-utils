@@ -560,6 +560,8 @@ module Chefctl
             # Don't kill any ssh processes, but we might kill their children
             # separately. It'll get cleaned up if the child gets killed anyway.
             /ssh/,
+            # Don't kill antlir image builds
+            /antlir/,
             # Facebook-ism, ignore
             /sush/,
           ],
