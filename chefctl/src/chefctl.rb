@@ -564,6 +564,7 @@ module Chefctl
             /antlir/,
             # Facebook-ism, ignore
             /sush/,
+            /h[\ds]h/,
           ],
         )
 
