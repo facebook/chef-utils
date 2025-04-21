@@ -213,6 +213,16 @@ module Chefctl
     # Process.spawn works fine for all platforms. This option meant to preserve
     # old Windows behaviour, lack of logging now, and shouldn't be used.
     windows_subshell false
+
+    # Priority level to set the chef-client process to. This was mostly tested
+    # on a Windows laptop and may not work as expected elsewhere, so you should
+    # do proper testing prior to changing client configurations.
+    # Linux/mac use niceness values, Windows uses values set in windows APIs.
+    # Niceness values range from -20 (most favorable to the process) to
+    # 19 (least favorable to the process).
+    # Windows values are as follows: "Idle" => 64, "BelowNormal" => 16384,
+    # "Normal" => 32, "AboveNormal" => 32768, "High" => 128, "Realtime" => 256
+    priority nil
   end
 
   # Chefctl plugins are used to define custom behavior for chefctl.
@@ -1106,6 +1116,14 @@ module Chefctl
           # subshell before, which means we barely changing the behavior.
           :unsetenv_others => !Chefctl.lib.is_a?(Chefctl::Lib::Windows),
         )
+        begin
+          if !Chefctl::Config.priority.nil?
+            Process.setpriority(Process::PRIO_PROCESS, chef_client_pid, Chefctl::Config.priority)
+            Chefctl.logger.info("Set priority of chef-client to #{Chefctl::Config.priority}.")
+          end
+        rescue Exception => e # rubocop:disable Lint/RescueException
+          Chefctl.logger.info("Failed to set priority of chef-client #{e.message}")
+        end
         chef_client = Process.wait2(chef_client_pid)[1]
 
         # output_t is nil if we're running with -q/--quiet
@@ -1310,6 +1328,43 @@ if $PROGRAM_NAME == __FILE__
     ) do |v|
       Chefctl.program_name = v
     end
+
+    parser.
+      on(
+        '--priority PRIORITY',
+        'Set the process priority for chef-client using niceness or one of ' +
+          "'Idle', 'BelowNormal', 'Normal', 'AboveNormal', 'High', 'Realtime'",
+      ) do |v|
+        priority_map = if Chefctl.lib.is_a?(Chefctl::Lib::Windows)
+                         {
+                           # Windows priority values from https://learn.microsoft.com/en-us/dotnet/api/system.diagnostics.processpriorityclass?view=net-9.0
+                           'Idle' => 64,
+                           'BelowNormal' => 16384,
+                           'Normal' => 32,
+                           'AboveNormal' => 32768,
+                           'High' => 128,
+                           'Realtime' => 256,
+                         }
+                       else
+                         {
+                           # Unix priority values based on https://man7.org/linux/man-pages/man1/nice.1.html
+                           'Idle' => 19,
+                           'BelowNormal' => 10,
+                           'Normal' => 0,
+                           'AboveNormal' => -5,
+                           'High' => -10,
+                           'Realtime' => -20,
+                         }
+                       end
+
+        if v =~ /^-?\d+$/
+          options[:priority] = v.to_i
+        elsif priority_map.key?(v)
+          options[:priority] = priority_map[v]
+        else
+          fail(ArgumentError, "Invalid priority value '#{v}'. Please use an integer or one of the predefined strings.")
+        end
+      end
   end
 
   args = parse.parse_both_passes do
