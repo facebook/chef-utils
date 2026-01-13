@@ -269,6 +269,25 @@ module Chefctl
       end
     end
 
+    # Called after the lock is acquired, before pre_run (and this before
+    # the chef run is started). This hook is intended to allow suppressing
+    # Chef runs under specific conditions. Examples might include:
+    #
+    #   - Device is on battery
+    #   - Device is not connected to VPN/backhaul/etc.
+    #   - Some global service meant to disable runs during an emergency
+    #
+    # Defaults, of course, to false. Should be used with care. While we _will_
+    # log that the chef run was skipped at the request of the plugin, the plugin
+    # should log _why_ it was skipped so that it appears in the log.
+    #
+    # Note that if the return value is an Integer, that integer is used as
+    # the exit value of chefctl. If it's `true`, the exit value is 0, and
+    # if it is `false`, chef runs normally.
+    def skip_run?
+      false
+    end
+
     # Called after the lock is acquired, before the chef run is started.
     # Parameters:
     # - output is the path to the log file for the chef run
@@ -885,11 +904,19 @@ module Chefctl
 
         symlink_output(:chef_cur)
 
-        do_splay unless Chefctl::Config.immediate
-
-        plugin.pre_run(@paths[:out])
-
-        retval = do_chef_runs
+        ret = plugin.skip_run?
+        if ret.is_a?(FalseClass)
+          do_splay unless Chefctl::Config.immediate
+          plugin.pre_run(@paths[:out])
+          retval = do_chef_runs
+        else
+          Chefctl.logger.info('Plugin requested skipping chef run.')
+          # if it's an integer, use that as the exit code, otherwise
+          # we keep it 0, indicating success
+          if ret.is_a?(Integer)
+            retval = ret
+          end
+        end
 
         plugin.post_run(@paths[:out], retval)
 
