@@ -1,0 +1,16 @@
+# https://editorconfig.org
+root = true
+[{*.rb,Gemfile,*.gemspec,Steepfile}]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+[scripts/run_rubocop]
+indent_style = space
+indent_size = 2
+tab_width = 2
+
+[chef-server-stats/chef-server-stats]
+indent_style = space
+indent_size = 2
+tab_width = 2

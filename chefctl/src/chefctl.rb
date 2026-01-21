@@ -1,7 +1,5 @@
 #!/opt/chef/embedded/bin/ruby
 
-# vim: syntax=ruby:expandtab:shiftwidth=2:softtabstop=2:tabstop=2
-
 # Copyright 2013-present Facebook
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
