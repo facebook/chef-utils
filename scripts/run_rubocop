@@ -21,6 +21,8 @@ if bundle exec rubocop --version > /dev/null 2>&1; then
   RUBOCOP='bundle exec rubocop'
 elif [ -x /opt/chef-workstation/embedded/bin/rubocop ]; then
   RUBOCOP='/opt/chef-workstation/embedded/bin/rubocop'
+elif [ -x /opt/cinc-workstation/embedded/bin/rubocop ]; then
+  RUBOCOP='/opt/cinc-workstation/embedded/bin/rubocop'
 elif [ -x /opt/chef/embedded/bin/rubocop ]; then
   RUBOCOP='/opt/chef/embedded/bin/rubocop'
 else
