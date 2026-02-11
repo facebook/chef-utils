@@ -197,6 +197,42 @@ RSpec.describe Chefctl::Main do
   end
 end
 
+RSpec.describe Chefctl::Main, 'locking with disable_locking' do
+  let(:main) { Chefctl::Main.new('/var/chef/outputs', 'foo') }
+
+  around do |example|
+    original = Chefctl::Config.disable_locking
+    Chefctl::Config.disable_locking true
+    example.run
+  ensure
+    Chefctl::Config.disable_locking original
+  end
+
+  it 'acquire_lock is a no-op when disable_locking is true' do
+    expect(main).not_to receive(:wait_for_lock)
+    main.acquire_lock
+  end
+
+  it 'release_lock is a no-op when disable_locking is true' do
+    lock_fd = double('lock_fd')
+    main.instance_variable_get(:@lock)[:fd] = lock_fd
+    main.instance_variable_get(:@lock)[:held] = true
+    expect(lock_fd).not_to receive(:flock)
+    expect(lock_fd).not_to receive(:close)
+    expect(File).not_to receive(:unlink)
+    main.release_lock
+  end
+
+  it 'lock still yields the block when locking is disabled' do
+    # Stub to prevent filesystem access if disable_locking guard fails
+    allow(File).to receive(:open).with('/var/lock/subsys/chefctl', anything).
+      and_raise('locking should be disabled')
+    yielded = false
+    main.lock { yielded = true }
+    expect(yielded).to eq(true)
+  end
+end
+
 RSpec.describe TwoPassParser do
   it 'should perform two passes' do
     n = 0

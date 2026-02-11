@@ -221,6 +221,9 @@ module Chefctl
     # Windows values are as follows: "Idle" => 64, "BelowNormal" => 16384,
     # "Normal" => 32, "AboveNormal" => 32768, "High" => 128, "Realtime" => 256
     priority nil
+
+    # When true, acquire_lock and release_lock become no-ops.
+    disable_locking false
   end
 
   # Chefctl plugins are used to define custom behavior for chefctl.
@@ -825,6 +828,11 @@ module Chefctl
 
     # Acquire the lock
     def acquire_lock
+      if Chefctl::Config.disable_locking
+        Chefctl.logger.warn('Locking is disabled via --clowntown-disable-locking-mechanism')
+        return
+      end
+
       if Chefctl::Config.immediate
         Chefctl.lib.stop_or_wait_for_chef(@paths[:chef_cur])
       end
@@ -862,6 +870,8 @@ module Chefctl
 
     # Release the lock, if it's being held.
     def release_lock
+      return if Chefctl::Config.disable_locking
+
       if @lock[:fd]
         if @lock[:held]
           @lock[:fd].flock(File::LOCK_UN)
@@ -1352,6 +1362,15 @@ if $PROGRAM_NAME == __FILE__
       "name of the chefctl process. defaults to '#{$PROGRAM_NAME}'",
     ) do |v|
       Chefctl.program_name = v
+    end
+
+    parser.on(
+      '--clowntown-disable-locking-mechanism',
+      'Disable the locking mechanism so acquire_lock and release_lock are no-ops. ' +
+      'This should only be used in situations (ie build system one-off jobs) where ' +
+      'there is certainty that chefctl will only be called once.',
+    ) do
+      options[:disable_locking] = true
     end
 
     parser.
