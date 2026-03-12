@@ -150,7 +150,7 @@ module Chefctl
     immediate false
 
     # The lock file to use for chefctl.
-    lock_file '/var/lock/subsys/chefctl'
+    lock_file '/var/lock/chefctl.lock'
 
     # How long to wait for the lock to become available.
     lock_time 1800
