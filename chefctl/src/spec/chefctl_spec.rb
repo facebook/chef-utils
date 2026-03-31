@@ -17,8 +17,19 @@ require_relative '../chefctl'
 class ShellStub < Chefctl::Lib::Linux
   attr_accessor :cmd_output
 
-  def shell_output(_cmd, &_block)
+  def shell_output(cmd, &_block)
+    # Force list_processes into the 2-column (pid, command) branch
+    if cmd.include?('pidns')
+      raise Mixlib::ShellOut::ShellCommandFailed # rubocop:todo Style/SignalException
+    end
     @cmd_output
+  end
+
+  private
+
+  # Avoid real ps calls for parent tree lookups
+  def parent_group(_pid)
+    [Process.pid]
   end
 end
 
@@ -48,7 +59,6 @@ RSpec.describe Chefctl::Lib do
 
   describe '#chefctl_procs' do
     it 'should return chef process' do
-      skip 'not working'
       lib = ShellStub.new
       lib.cmd_output = [
         '123 chefctl.rb foo bar',
@@ -61,7 +71,6 @@ RSpec.describe Chefctl::Lib do
     end
 
     it 'should filter editors' do
-      skip 'not working'
       lib = ShellStub.new
       lib.cmd_output = [
         '123 emacs chefctl.rb',
