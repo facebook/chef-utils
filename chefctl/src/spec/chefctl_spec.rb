@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+require 'tempfile'
 require_relative '../chefctl'
 
 class ShellStub < Chefctl::Lib::Linux
@@ -239,6 +240,208 @@ RSpec.describe Chefctl::Main, 'locking with disable_locking' do
     yielded = false
     main.lock { yielded = true }
     expect(yielded).to eq(true)
+  end
+end
+
+RSpec.describe Chefctl::Lib, '#validate_options' do
+  let(:lib) { Chefctl::Lib::Linux.new }
+
+  it 'accepts valid options' do
+    expect { lib.validate_options(:splay => 100) }.not_to raise_error
+  end
+
+  it 'accepts empty options' do
+    expect { lib.validate_options({}) }.not_to raise_error
+  end
+
+  it 'exits when both splay and immediate are set' do
+    expect do
+      lib.validate_options(:splay => 100, :immediate => true)
+    end.to raise_error(SystemExit)
+  end
+end
+
+RSpec.describe Chefctl::Lib, '#chef_client_binary' do
+  let(:lib) { Chefctl::Lib::Linux.new }
+
+  around do |example|
+    original = Chefctl::Config.chef_client
+    example.run
+  ensure
+    Chefctl::Config.chef_client original
+  end
+
+  it 'returns the string when chef_client is a string' do
+    Chefctl::Config.chef_client '/usr/bin/chef-client'
+    expect(lib.chef_client_binary).to eq('/usr/bin/chef-client')
+  end
+
+  it 'returns the first element when chef_client is an array' do
+    Chefctl::Config.chef_client ['/usr/bin/ruby', '--disable-gems', '/usr/bin/chef-client']
+    expect(lib.chef_client_binary).to eq('/usr/bin/ruby')
+  end
+end
+
+RSpec.describe Chefctl::Lib, '#set_mtime' do
+  let(:lib) { Chefctl::Lib::Linux.new }
+
+  it 'sets the mtime of a file' do
+    tmpfile = Tempfile.new('set_mtime_test')
+    new_time = Time.now - 3600
+    lib.set_mtime(tmpfile.path, new_time)
+    expect(File.mtime(tmpfile.path).to_i).to eq(new_time.to_i)
+  ensure
+    tmpfile.close!
+  end
+end
+
+RSpec.describe Chefctl::Main, '#get_chef_cmd' do
+  let(:main) { Chefctl::Main.new('/var/chef/outputs', 'foo') }
+
+  around do |example|
+    saved = {
+      :chef_client => Chefctl::Config.chef_client,
+      :debug => Chefctl::Config.debug,
+      :trace => Chefctl::Config.trace,
+      :human => Chefctl::Config.human,
+      :whyrun => Chefctl::Config.whyrun,
+      :color => Chefctl::Config.color,
+      :chef_options => Chefctl::Config.chef_options.dup,
+    }
+    example.run
+  ensure
+    saved.each { |k, v| Chefctl::Config.send(k, v) }
+  end
+
+  it 'returns default command with force-logger and no-color' do
+    Chefctl::Config.debug false
+    Chefctl::Config.trace false
+    Chefctl::Config.human false
+    Chefctl::Config.whyrun false
+    Chefctl::Config.color false
+    Chefctl::Config.chef_options ['--no-fork']
+    cmd = main.get_chef_cmd
+    expect(cmd).to include('--force-logger')
+    expect(cmd).to include('--no-color')
+    expect(cmd).to include('--no-fork')
+  end
+
+  it 'includes debug flags when debug is true' do
+    Chefctl::Config.debug true
+    Chefctl::Config.trace false
+    Chefctl::Config.human false
+    Chefctl::Config.whyrun false
+    Chefctl::Config.color false
+    Chefctl::Config.chef_options []
+    cmd = main.get_chef_cmd
+    expect(cmd).to include('-l', 'debug')
+  end
+
+  it 'includes trace flags when trace is true' do
+    Chefctl::Config.debug false
+    Chefctl::Config.trace true
+    Chefctl::Config.human false
+    Chefctl::Config.whyrun false
+    Chefctl::Config.color false
+    Chefctl::Config.chef_options []
+    cmd = main.get_chef_cmd
+    expect(cmd).to include('-l', 'trace')
+  end
+
+  it 'includes why-run flag when whyrun is true' do
+    Chefctl::Config.debug false
+    Chefctl::Config.trace false
+    Chefctl::Config.human false
+    Chefctl::Config.whyrun true
+    Chefctl::Config.color false
+    Chefctl::Config.chef_options []
+    cmd = main.get_chef_cmd
+    expect(cmd).to include('--why-run')
+    expect(cmd).to include('-l', 'fatal')
+    expect(cmd).to include('-F', 'doc')
+  end
+
+  it 'omits --no-color when color is true' do
+    Chefctl::Config.debug false
+    Chefctl::Config.trace false
+    Chefctl::Config.human false
+    Chefctl::Config.whyrun false
+    Chefctl::Config.color true
+    Chefctl::Config.chef_options []
+    cmd = main.get_chef_cmd
+    expect(cmd).not_to include('--no-color')
+  end
+end
+
+RSpec.describe Chefctl::Main, '#get_chef_env' do
+  let(:main) { Chefctl::Main.new('/var/chef/outputs', 'foo') }
+
+  it 'sets HOSTNAME from the plugin' do
+    env = main.get_chef_env
+    expect(env).to have_key('HOSTNAME')
+  end
+
+  it 'sets PATH from config' do
+    env = main.get_chef_env
+    expect(env).to have_key('PATH')
+    Chefctl::Config.path.each do |p|
+      expect(env['PATH']).to include(p)
+    end
+  end
+
+  it 'passes through allowed env vars' do
+    original = ENV['HOME']
+    env = main.get_chef_env
+    expect(env['HOME']).to eq(original) if original
+  end
+end
+
+RSpec.describe Chefctl::Main, '#keep_testing' do
+  let(:main) { Chefctl::Main.new('/var/chef/outputs', 'foo') }
+
+  around do |example|
+    original = Chefctl::Config.testing_timestamp
+    example.run
+  ensure
+    Chefctl::Config.testing_timestamp original
+  end
+
+  it 'extends testing when stamp expires in less than 1 hour' do
+    tmpfile = Tempfile.new('test_timestamp')
+    Chefctl::Config.testing_timestamp tmpfile.path
+    # Set mtime to 30 minutes from now (< 1 hour)
+    future = Time.now + 1800
+    File.utime(File.atime(tmpfile.path), future, tmpfile.path)
+
+    main.keep_testing
+
+    # mtime should now be ~1 hour from now
+    new_mtime = File.mtime(tmpfile.path)
+    expect(new_mtime.to_i).to be_within(5).of((Time.now + 3600).to_i)
+  ensure
+    tmpfile.close!
+  end
+
+  it 'does nothing when stamp file does not exist' do
+    Chefctl::Config.testing_timestamp '/nonexistent/path/test_timestamp'
+    expect { main.keep_testing }.not_to raise_error
+  end
+end
+
+RSpec.describe Chefctl::Main, '#symlink_output' do
+  let(:main) { Chefctl::Main.new('/var/chef/outputs', 'foo') }
+
+  around do |example|
+    original = Chefctl::Config.symlink_output
+    example.run
+  ensure
+    Chefctl::Config.symlink_output original
+  end
+
+  it 'does not create symlink when symlink_output is false' do
+    Chefctl::Config.symlink_output false
+    expect(Chefctl.lib).not_to receive(:symlink)
+    main.symlink_output(:chef_cur)
   end
 end
 
