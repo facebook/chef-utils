@@ -92,7 +92,7 @@ RSpec.describe Chefctl::Main do
     lockfile = double('lockfile')
 
     # open 'a+' done in wait_for_lock
-    allow(File).to receive(:open).with('/var/lock/subsys/chefctl', 'a+') { lockfile }
+    allow(File).to receive(:open).with('/var/lock/chefctl.lock', 'a+') { lockfile }
     allow(lockfile).to receive(:flock).and_return(true)
 
     allow(lockfile).to receive(:close)
@@ -106,7 +106,7 @@ RSpec.describe Chefctl::Main do
   it 'can still acquire lock if first attempt fails' do
     # First failed attempt
     allow(Chefctl).
-      to receive_message_chain(:logger, :debug).with('Trying lock /var/lock/subsys/chefctl')
+      to receive_message_chain(:logger, :debug).with('Trying lock /var/lock/chefctl.lock')
     allow(main).to receive(:wait_for_lock).with(-1).and_return(false)
 
     # Second attempt
@@ -114,21 +114,21 @@ RSpec.describe Chefctl::Main do
 
     # Get pid of other lock file
     other_lockfile = double('other_lockfile')
-    expect(File).to receive(:open).with('/var/lock/subsys/chefctl', 'r').and_yield(other_lockfile)
+    expect(File).to receive(:open).with('/var/lock/chefctl.lock', 'r').and_yield(other_lockfile)
     expect(other_lockfile).to receive(:read).and_return('888888')
 
     expect(Chefctl).
       to receive_message_chain(:logger, :info).
-      with('/var/lock/subsys/chefctl is locked by 888888, waiting up to 1800 seconds.')
+      with('/var/lock/chefctl.lock is locked by 888888, waiting up to 1800 seconds.')
 
     # open 'a+' done in wait_for_lock
     lockfile = double('lockfile')
-    allow(File).to receive(:open).with('/var/lock/subsys/chefctl', 'a+') { lockfile }
+    allow(File).to receive(:open).with('/var/lock/chefctl.lock', 'a+') { lockfile }
     allow(lockfile).to receive(:flock).and_return(true)
 
     # taking over the lock
     expect(Chefctl).
-      to receive_message_chain(:logger, :debug).with('Lock acquired: /var/lock/subsys/chefctl')
+      to receive_message_chain(:logger, :debug).with('Lock acquired: /var/lock/chefctl.lock')
     expect(lockfile).to receive(:truncate)
     expect(Process).to receive(:pid).and_return('123123')
     expect(lockfile).to receive(:write).with('123123')
@@ -140,7 +140,7 @@ RSpec.describe Chefctl::Main do
   it 'can still acquire lock if first attempt fails' do
     # First failed attempt
     allow(Chefctl).
-      to receive_message_chain(:logger, :debug).with('Trying lock /var/lock/subsys/chefctl')
+      to receive_message_chain(:logger, :debug).with('Trying lock /var/lock/chefctl.lock')
     allow(main).to receive(:wait_for_lock).with(-1).and_return(false)
 
     # Second attempt
@@ -148,21 +148,21 @@ RSpec.describe Chefctl::Main do
 
     # Get pid of other lock file
     other_lockfile = double('other_lockfile')
-    expect(File).to receive(:open).with('/var/lock/subsys/chefctl', 'r').and_yield(other_lockfile)
+    expect(File).to receive(:open).with('/var/lock/chefctl.lock', 'r').and_yield(other_lockfile)
     expect(other_lockfile).to receive(:read).and_return('888888')
 
     expect(Chefctl).
       to receive_message_chain(:logger, :info).
-      with('/var/lock/subsys/chefctl is locked by 888888, waiting up to 1800 seconds.')
+      with('/var/lock/chefctl.lock is locked by 888888, waiting up to 1800 seconds.')
 
     # open 'a+' done in wait_for_lock
     lockfile = double('lockfile')
-    allow(File).to receive(:open).with('/var/lock/subsys/chefctl', 'a+') { lockfile }
+    allow(File).to receive(:open).with('/var/lock/chefctl.lock', 'a+') { lockfile }
     allow(lockfile).to receive(:flock).and_return(true)
 
     # taking over the lock
     expect(Chefctl).
-      to receive_message_chain(:logger, :debug).with('Lock acquired: /var/lock/subsys/chefctl')
+      to receive_message_chain(:logger, :debug).with('Lock acquired: /var/lock/chefctl.lock')
     expect(lockfile).to receive(:truncate)
     expect(Process).to receive(:pid).and_return('123123')
     expect(lockfile).to receive(:write).with('123123')
@@ -174,30 +174,30 @@ RSpec.describe Chefctl::Main do
   it 'does not crash on race between wait_for_lock and read on missing lockfile' do
     # First failed attempt
     allow(Chefctl).
-      to receive_message_chain(:logger, :debug).with('Trying lock /var/lock/subsys/chefctl')
+      to receive_message_chain(:logger, :debug).with('Trying lock /var/lock/chefctl.lock')
     allow(main).to receive(:wait_for_lock).with(-1).and_return(false)
 
     # Second attempt
     expect(main).to receive(:wait_for_lock).with(1800).and_call_original # second attempt
 
     # Attempt to get pid of other lock file
-    expect(File).to receive(:open).with('/var/lock/subsys/chefctl', 'r').and_raise(Errno::ENOENT)
+    expect(File).to receive(:open).with('/var/lock/chefctl.lock', 'r').and_raise(Errno::ENOENT)
     expect(Chefctl).
       to receive_message_chain(:logger, :info).
       with('Possible lockfile race, re-running wait_for_lock')
 
     expect(Chefctl).
       to receive_message_chain(:logger, :info).
-      with('/var/lock/subsys/chefctl is locked by another process, waiting up to 1800 seconds.')
+      with('/var/lock/chefctl.lock is locked by another process, waiting up to 1800 seconds.')
 
     # open 'a+' done in wait_for_lock
     lockfile = double('lockfile')
-    allow(File).to receive(:open).with('/var/lock/subsys/chefctl', 'a+') { lockfile }
+    allow(File).to receive(:open).with('/var/lock/chefctl.lock', 'a+') { lockfile }
     allow(lockfile).to receive(:flock).and_return(true)
 
     # taking over the lock
     expect(Chefctl).
-      to receive_message_chain(:logger, :debug).with('Lock acquired: /var/lock/subsys/chefctl')
+      to receive_message_chain(:logger, :debug).with('Lock acquired: /var/lock/chefctl.lock')
     expect(lockfile).to receive(:truncate)
     expect(Process).to receive(:pid).and_return('123123')
     expect(lockfile).to receive(:write).with('123123')
@@ -235,7 +235,7 @@ RSpec.describe Chefctl::Main, 'locking with disable_locking' do
 
   it 'lock still yields the block when locking is disabled' do
     # Stub to prevent filesystem access if disable_locking guard fails
-    allow(File).to receive(:open).with('/var/lock/subsys/chefctl', anything).
+    allow(File).to receive(:open).with('/var/lock/chefctl.lock', anything).
       and_raise('locking should be disabled')
     yielded = false
     main.lock { yielded = true }
