@@ -23,6 +23,7 @@
 # documentation for descriptions of each method.
 
 require 'json'
+require 'tempfile'
 
 module CustomAttributes
   def initialize
@@ -41,7 +42,7 @@ module CustomAttributes
 
   def pre_start
     if @custom_attr
-      @tmp_file = Tmpfile.new('attributes')
+      @tmp_file = Tempfile.new('attributes')
       attrs = { 'custom_attributes' => @custom_attr }
       @tmp_file.write(JSON.generate(attrs))
       @tmp_file.close
